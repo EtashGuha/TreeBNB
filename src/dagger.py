@@ -27,9 +27,8 @@ from NodeSel import MyNodesel
 from nodeutil import getListOptimalID
 from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
     Branchrule, Nodesel
-
 import glob
-
+torch.set_printoptions(precision=10)
 class Dagger():
     def __init__(self, selector, problem_dir, device):
         self.policy = selector
@@ -38,9 +37,10 @@ class Dagger():
         self.sfeature_list = []
         self.soracle = []
         self.loss = nn.CrossEntropyLoss()
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=10000)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
         self.device = device
         self.prev = None
+
     def train(self):
         self.policy.train()
         for problem in self.problems:
@@ -99,4 +99,3 @@ class Dagger():
                 loss = self.loss(output, label)
                 loss.backward()
                 self.optimizer.step()
-                

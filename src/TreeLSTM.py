@@ -7,7 +7,6 @@ class TreeLSTMCell(nn.Module):
     def __init__(self, x_size, h_size):
         super(TreeLSTMCell, self).__init__()
         self.W_iou = nn.Linear(x_size, 3 * h_size, bias=False)
-        self.W_iou.weight.register_hook(lambda x: print(x))
         self.U_iou = nn.Linear(h_size, 3 * h_size, bias=False)
         self.b_iou = nn.Parameter(torch.zeros(1, 3 * h_size))
         self.U_f = nn.Linear(h_size, h_size)
@@ -34,6 +33,7 @@ class TreeLSTMCell(nn.Module):
         c = i * u + nodes.data['c']
         # equation (6)
         h = o * torch.tanh(c)
+
         return {'h': h, 'c': c}
 
 
@@ -73,20 +73,16 @@ class TreeLSTM(nn.Module):
         # feed embedding
         features = g.ndata["feature"]
         g.ndata['iou'] = self.cell.W_iou(self.dropout(features))
-
         g.ndata['h'] = h
         g.ndata['c'] = c
         # propagate
-
         dgl.prop_nodes_topo(g)
         # compute logits
-
+        h = self.dropout(g.ndata['h'])
         status = g.ndata["in_queue"].unsqueeze(dim=1)
         masked_ids = g.ndata["node_id"] * g.ndata["in_queue"]
         ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
-
         tas = self.linear(h).squeeze(0)
-
         vals = tas * torch.autograd.Variable(g.ndata["in_queue"].unsqueeze(dim=1))
         vals = vals.squeeze(dim=1)
         nonZeroed = vals[vals.nonzero()]
