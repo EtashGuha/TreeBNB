@@ -1,0 +1,23 @@
+import torch.sparse
+import faulthandler
+from TreeLSTM import TreeLSTMCell, TreeLSTM
+faulthandler.enable()
+nodeLimit = 30000
+from dagger import Dagger
+
+device = torch.device('cpu')
+# hyper parameters
+x_size = 7
+h_size = 7
+dropout = 0.5
+lr = 0.05
+weight_decay = 1000000000000
+epochs = 10
+
+# create the model
+lstmFeature = TreeLSTM(x_size,
+                       h_size,
+                       dropout)
+
+my_dagger = Dagger(lstmFeature, "/Users/etashguha/Documents/research/data/", "cpu")
+my_dagger.train()
