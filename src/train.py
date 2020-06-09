@@ -18,9 +18,9 @@ epochs = 10
 lstmFeature = TreeLSTM(x_size,
                        h_size,
                        dropout)
-# lstmFeature.load_state_dict(torch.load("/Users/etashguha/Documents/TreeBnB/lstmFeature.pt"))
+lstmFeature.load_state_dict(torch.load("/Users/etashguha/Documents/TreeBnB/lstmFeature.pt"))
 
-my_dagger = Dagger(lstmFeature, "/Users/etashguha/Documents/research/data/", "cpu")
+my_dagger = Dagger(lstmFeature, "/Users/etashguha/Documents/research/singledata", "cpu", num_train = 200, num_epoch=1)
 my_dagger.train()
 torch.save(lstmFeature.state_dict(), "/Users/etashguha/Documents/TreeBnB/lstmFeature.pt")
 

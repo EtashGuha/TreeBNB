@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import dgl
-
+import faulthandler
+faulthandler.enable()
 
 class TreeLSTMCell(nn.Module):
     def __init__(self, x_size, h_size):
@@ -79,8 +80,6 @@ class TreeLSTM(nn.Module):
         dgl.prop_nodes_topo(g)
         # compute logits
         h = self.dropout(g.ndata['h'])
-        status = g.ndata["in_queue"].unsqueeze(dim=1)
-        masked_ids = g.ndata["node_id"] * g.ndata["in_queue"]
         ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
         tas = self.linear(h).squeeze(0)
         vals = tas * torch.autograd.Variable(g.ndata["in_queue"].unsqueeze(dim=1))

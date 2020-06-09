@@ -10,17 +10,16 @@ import networkx as nx
 import dgl
 import copy
 from nodeutil import nodeData, getNodeFeature, _build_tree
-
+import faulthandler
+faulthandler.enable()
 
 class MyNodesel(Nodesel):
-    def __init__(self, model, policy, train=False, dataset=None, oracle=None, optimal_ids=None):
+    def __init__(self, model, policy, dataset=None,  step_ids=None):
         self.model = model
         self.policy = policy
         self.tree = Tree()
-        self.train = train
         self.dataset = dataset
-        self.oracle = oracle
-        self.optimal_ids = optimal_ids
+        self.step_ids = step_ids
         self.tempdgltree = dgl.DGLGraph()
         self.cou = 1
         self.probs = None
@@ -73,26 +72,13 @@ class MyNodesel(Nodesel):
         dgltree.from_networkx(g, node_attrs=["feature", "node_id", "in_queue"])
 
         # To calculate node features via lstm
-
         probs, ids = self.calcLSTMFeatures(dgltree)
 
         self.probs = probs
         self.ids = ids
 
-        if self.train:
-            queue_contains_optimal = False
-            optimal_node = None
-            for node in listOfNodes:
-                num = node.getNumber()
-                if num in self.optimal_ids:
-                    queue_contains_optimal = True
-                    optimal_node = node
-                    break
-
-            if queue_contains_optimal:
-                number = optimal_node.getNumber()
-                self.oracle.append((self.ids == number).nonzero()[0][0])
-                self.dataset.append(dgltree)
+        self.step_ids.append(ids)
+        self.dataset.append(dgltree)
 
         if len(probs) != 0:
             _, indices = torch.max(probs, 0)

@@ -1,5 +1,7 @@
 import torch
 import networkx as nx
+import faulthandler
+faulthandler.enable()
 
 class nodeData():
     def __init__(self, node, val, variables=None, branch_bounds=None, bound_types=None):
