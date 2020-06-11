@@ -22,6 +22,7 @@ class TreeLSTMCell(nn.Module):
         f = torch.sigmoid(self.U_f(h_cat)).view(*nodes.mailbox['h'].size())
         # second term of equation (5)
         c = torch.sum(f * nodes.mailbox['c'], 1)
+
         return {'iou': self.U_iou(h_cat), 'c': c}
 
     def apply_node_func(self, nodes):

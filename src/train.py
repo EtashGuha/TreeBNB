@@ -4,11 +4,12 @@ from TreeLSTM import TreeLSTMCell, TreeLSTM
 faulthandler.enable()
 nodeLimit = 30000
 from dagger import Dagger
+import os
 
 device = torch.device('cpu')
 # hyper parameters
-x_size = 7
-h_size = 7
+x_size = 14
+h_size = 14
 dropout = 0.5
 lr = 0.05
 weight_decay = 1000000000000
@@ -18,7 +19,8 @@ epochs = 10
 lstmFeature = TreeLSTM(x_size,
                        h_size,
                        dropout)
-lstmFeature.load_state_dict(torch.load("/Users/etashguha/Documents/TreeBnB/lstmFeature.pt"))
+if os.path.exists("/Users/etashguha/Documents/TreeBnB/lstmFeature.pt"):
+    lstmFeature.load_state_dict(torch.load("/Users/etashguha/Documents/TreeBnB/lstmFeature.pt"))
 
 my_dagger = Dagger(lstmFeature, "/Users/etashguha/Documents/research/singledata", "cpu", num_train = 200, num_epoch=1)
 my_dagger.train()

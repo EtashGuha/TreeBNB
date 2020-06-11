@@ -71,7 +71,7 @@ class Dagger():
                 model.optimize()
 
                 optimal_node = None
-                ourNodeSel.tree.show()
+                # ourNodeSel.tree.show(data_property="nodeid")
                 for node in ourNodeSel.tree.leaves():
                     isOptimal = True
                     variables = node.data.variables
@@ -106,12 +106,14 @@ class Dagger():
                         self.sfeature_list.append(temp_features[i])
 
                 samples = list(zip(self.sfeature_list, self.soracle))
+
+                # print(optimal_ids)
                 #             s_loader = DataLoader(samples, batch_size=32, shuffle=True, collate_fn=collate)
                 for (bg, label) in samples:
                     self.optimizer.zero_grad()
                     g = bg
                     n = g.number_of_nodes()
-                    h_size = 7
+                    h_size = 14
                     h = torch.zeros((n, h_size))
                     c = torch.zeros((n, h_size))
                     output, _ = self.policy(g, h, c)
@@ -120,6 +122,6 @@ class Dagger():
                     loss = self.loss(output, label)
                     loss.backward()
                     self.optimizer.step()
-
-                os.remove("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt")
+                if os.path.exists("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt"):
+                    os.remove("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt")
                 torch.save(self.policy.state_dict(), "/Users/etashguha/Documents/TreeBnB/lstmFeature.pt")

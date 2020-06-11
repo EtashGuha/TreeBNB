@@ -26,7 +26,7 @@ class MyNodesel(Nodesel):
         self.ids = None
 
     def calcLSTMFeatures(self, g):
-        h_size = 7
+        h_size = 14
         n = g.number_of_nodes()
         h = torch.zeros((n, h_size))
         c = torch.zeros((n, h_size))
@@ -41,14 +41,14 @@ class MyNodesel(Nodesel):
         if curr_node != None:
             number = curr_node.getNumber()
             if self.tree.size() == 0:
-                self.tree.create_node(number, number, data=nodeData(curr_node, self.model.getLPObjVal()))
+                self.tree.create_node(number, number, data=nodeData(curr_node, self.model.getLPObjVal(), self.model))
             else:
                 variables, branch_bounds, bound_types = curr_node.getParentBranchings()
                 parent_node = curr_node.getParent()
                 parent_num = parent_node.getNumber()
                 try:
                     self.tree.create_node(number, number, parent=parent_num,
-                                          data=nodeData(curr_node, self.model.getLPObjVal(), variables=variables,
+                                          data=nodeData(curr_node, self.model.getLPObjVal(), self.model, variables=variables,
                                                         bound_types=bound_types, branch_bounds=branch_bounds))
                 except:
                     pass
@@ -76,7 +76,6 @@ class MyNodesel(Nodesel):
 
         self.probs = probs
         self.ids = ids
-
         self.step_ids.append(ids)
         self.dataset.append(dgltree)
 
@@ -100,3 +99,25 @@ class MyNodesel(Nodesel):
         node1Idx = (self.ids == node1.getNumber()).nonzero()[0][0]
         node2Idx = (self.ids == node2.getNumber()).nonzero()[0][0]
         return self.probs[node2Idx] - self.probs[node1Idx]
+
+
+class linNodeSel(Nodesel):
+    def __init__(self, model, policy):
+        self.policy = policy
+        self.model = model
+
+    def nodeselect(self):
+        listOfNodes = list(itertools.chain.from_iterable(self.model.getOpenNodes()))
+
+        optimalNode = listOfNodes[0]
+
+
+    def nodecomp(self, node1, node2):
+        with torch.no_grad():
+            valOne = self.policy(getNodeFeature(node1, self.model))
+            valTwo = self.policy(getNodeFeature(node2, self.model))
+
+        return(valTwo - valOne)
+
+
+

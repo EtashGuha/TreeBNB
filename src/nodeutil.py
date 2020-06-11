@@ -4,8 +4,10 @@ import faulthandler
 faulthandler.enable()
 
 class nodeData():
-    def __init__(self, node, val, variables=None, branch_bounds=None, bound_types=None):
+    def __init__(self, node, val, model, variables=None, branch_bounds=None, bound_types=None):
         self.node = node
+        self.feature = getNodeFeature(node, model)
+        self.nodeid = node.getNumber()
         self.val = val
         self.variables = variables
         self.branch_bounds = branch_bounds
@@ -14,18 +16,20 @@ class nodeData():
 
 # %%
 def getNodeFeature(node, model):
-    # if node.getParentBranchings() != None:
-    #     variables, branch_bounds, bound_types = node.getParentBranchings()
-    #     return torch.Tensor(
-    #         [node.getDepth(), node.getLowerbound(), node.getEstimate(), node.getType(), model.getPrimalbound(),
-    #          model.getDualbound(), model.getVariablePseudocost(variables[0])])
-    # else:
-    #     return torch.Tensor(
-    #         [node.getDepth(), node.getLowerbound(), node.getEstimate(), node.getType(), model.getPrimalbound(),
-    #          model.getDualbound(), 0])
-    return torch.Tensor(
-        [node.getDepth(), node.getLowerbound(), node.getEstimate(), node.getType(), model.getPrimalbound(),
-         model.getDualbound(), 0])
+
+    if node.getParentBranchings() != None:
+        variables, branch_bounds, bound_types = node.getParentBranchings()
+        return torch.Tensor(
+            [node.getDepth(), node.getLowerbound(), node.getEstimate(), node.getType(), model.getPrimalbound(),
+             model.getDualbound(), node.getNDomchg()[0], node.getNDomchg()[1], node.getNDomchg()[2],
+             node.getNAddedConss(),
+             node.isActive(), node.isPropagatedAgain(), model.getGap(), model.getVariablePseudocost(variables[0])])
+    else:
+        return torch.Tensor(
+            [node.getDepth(), node.getLowerbound(), node.getEstimate(), node.getType(), model.getPrimalbound(),
+             model.getDualbound(), node.getNDomchg()[0], node.getNDomchg()[1], node.getNDomchg()[2],
+             node.getNAddedConss(),
+             node.isActive(), node.isPropagatedAgain(), model.getGap(), 0])
 
 # %%
 def getListOptimalID(initial_id, tree):
@@ -46,12 +50,12 @@ def _build_tree(tree, model):
         children = tree.children(node.identifier)
         for child in children:
             cid = child.identifier
-            g.add_node(cid, feature=getNodeFeature(node.data.node, model), node_id=cid, in_queue=0)
+            g.add_node(cid, feature=child.data.feature, node_id=cid, in_queue=0)
             if not child.is_leaf():
                 _rec_build(cid, child)
             g.add_edge(nid, cid)
 
-    g.add_node(root.identifier, feature=getNodeFeature(root.data.node, model), node_id=root.identifier, in_queue=0)
+    g.add_node(root.identifier, feature=root.data.feature, node_id=root.identifier, in_queue=0)
     _rec_build(root.identifier, root)
     return g
 # %%
