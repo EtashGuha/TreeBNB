@@ -74,7 +74,7 @@ def generate_setcover(nrows, ncols, density, filename, filename_pkl, rng, max_co
         (np.ones(len(indices), dtype=int), indices, indptr),
         shape=(nrows, ncols)).tocsr()
     print(c.shape)
-    c = np.asarray(np.sum(A.todense(), axis=0)).squeeze(axis=0)
+    # c = np.asarray(np.sum(A.todense(), axis=0)).squeeze(axis=0)
     print(ncols)
 
     print(c.shape)
@@ -116,8 +116,8 @@ if __name__ == '__main__':
     rng = np.random.RandomState(int(args.seed))
 
     if args.problem == 'setcover':
-        nrows = 120
-        ncols = 240
+        nrows = 250
+        ncols = 500
         dens = 0.05
 
         max_coef = 10
@@ -207,7 +207,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n_large)
 
 
-        # actually generate the instances
+        # actually xre the instances
         for filename, filename_pkl, nrows, ncols, dens in zip(filenames, filenames_pkl, nrowss, ncolss, denss):
             print(f'  generating file {filename} ...')
             generate_setcover(nrows=nrows, ncols=ncols, density=dens, filename=filename, filename_pkl=filename_pkl, rng=rng, max_coef=max_coef)

@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import sys
 import faulthandler
 from TreeLSTM import TreeLSTMCell, TreeLSTM
-from NodeSel import MyNodesel
+from NodeSel import MyNodesel, LinNodesel
 from nodeutil import getListOptimalID
 from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
     Branchrule, Nodesel
@@ -72,6 +72,8 @@ class Dagger():
 
                 optimal_node = None
                 # ourNodeSel.tree.show(data_property="nodeid")
+                if len(ourNodeSel.tree.all_nodes()) < 2:
+                    continue
                 for node in ourNodeSel.tree.leaves():
                     isOptimal = True
                     variables = node.data.variables
@@ -91,7 +93,7 @@ class Dagger():
                     continue
 
                 optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
-
+                print(optimal_ids)
                 for i in range(len(temp_features)):
                     queue_contains_optimal = False
                     optimal_id = None
@@ -122,6 +124,107 @@ class Dagger():
                     loss = self.loss(output, label)
                     loss.backward()
                     self.optimizer.step()
+                if os.path.exists("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt"):
+                    os.remove("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt")
+                torch.save(self.policy.state_dict(), "/Users/etashguha/Documents/TreeBnB/lstmFeature.pt")
+
+
+class LinDagger():
+    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1):
+        self.policy = selector
+        self.problems = glob.glob(problem_dir + "/*.lp")
+        if num_train is None:
+            self.num_train = len(self.problems)
+        else:
+            self.num_train = num_train
+        self.model = Model("setcover")
+        self.sfeature_list = []
+        self.soracle = []
+        self.loss = nn.MSELoss()
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
+        self.device = device
+        self.prev = None
+        self.num_epoch = num_epoch
+        self.listNNodes = []
+
+    def train(self):
+        self.policy.train()
+        counter = 0
+        for epoch in range(self.num_epoch):
+            for problem in self.problems:
+                if counter > self.num_train:
+                    break
+                counter += 1
+
+                temp_features = []
+
+                print(problem)
+                print(counter)
+                model = Model("setcover")
+                model.setIntParam('separating/maxroundsroot', 0)
+                model.setBoolParam('conflict/enable', False)
+                step_ids = []
+                ourNodeSel = LinNodesel(model, self.policy, dataset=temp_features)
+                model.readProblem(problem)
+                # model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+                try:
+                    model.optimize()
+                except:
+                    continue
+
+                self.listNNodes.append(model.getNNodes())
+                print(self.listNNodes)
+                optimal_node = None
+                # ourNodeSel.tree.show(data_property="nodeid")
+                for node in ourNodeSel.tree.leaves():
+                    isOptimal = True
+                    variables = node.data.variables
+                    bound_types = node.data.bound_types
+                    branch_bounds = node.data.branch_bounds
+                    for i in range(len(variables)):
+                        optval = model.getVal(variables[i])
+                        if ((bound_types[i] == 0 and optval < branch_bounds[i]) or (
+                                bound_types[i] == 1 and optval > branch_bounds[i])):
+                            isOptimal = False
+                        print("IM OPTIMAL")
+                    if isOptimal:
+                        optimal_node = node
+                        break
+
+                if optimal_node is None:
+                    continue
+
+                optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
+
+                for idToFeature in temp_features:
+                    ids = idToFeature.keys()
+                    for id in ids:
+                        if id in optimal_ids:
+                            for otherid in ids:
+                                if id == otherid:
+                                    continue
+                                self.sfeature_list.append(idToFeature[id] - idToFeature[otherid])
+                                self.soracle.append(torch.tensor([1], dtype=torch.float32));
+                                self.sfeature_list.append(idToFeature[otherid] - idToFeature[id])
+                                self.soracle.append(torch.tensor([-1], dtype=torch.float32));
+
+                samples = list(zip(self.sfeature_list, self.soracle))
+
+                # print(optimal_ids)
+                s_loader = DataLoader(samples, batch_size=4, shuffle=True)
+                for epoch in range(10):
+                    running_loss = 0.0
+                    for i, (feature, label) in enumerate(s_loader):
+                        self.optimizer.zero_grad()
+                        output= self.policy(feature)
+                        loss = self.loss(output, label)
+                        loss.backward()
+                        self.optimizer.step()
+                        running_loss += loss.item()
+                    print('[%d] loss: %.3f' %
+                          (epoch + 1, running_loss/len(s_loader)))
+                    running_loss = 0.0
+
                 if os.path.exists("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt"):
                     os.remove("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt")
                 torch.save(self.policy.state_dict(), "/Users/etashguha/Documents/TreeBnB/lstmFeature.pt")

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import dgl
 import faulthandler
+import torch.nn.functional as F
 faulthandler.enable()
 
 class TreeLSTMCell(nn.Module):
@@ -88,3 +89,15 @@ class TreeLSTM(nn.Module):
         nonZeroed = vals[vals.nonzero()]
         probs = nonZeroed.squeeze(dim=1)
         return probs, ids
+
+class LinLib(nn.Module):
+    def __init__(self, in_dim):
+        super(LinLib, self).__init__()
+        self.fc1 = nn.Linear(in_dim, 2 * in_dim)
+        self.fc2 = nn.Linear(2 * in_dim, in_dim)
+        self.fc3 = nn.Linear(in_dim, 1)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.fc2(x)
+        return self.fc3(x)

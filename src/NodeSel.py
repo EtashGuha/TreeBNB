@@ -37,10 +37,9 @@ class MyNodesel(Nodesel):
         # this method needs to be implemented by the user
         listOfNodes = list(itertools.chain.from_iterable(self.model.getOpenNodes()))
         curr_node = self.model.getCurrentNode()
-
         if curr_node != None:
             number = curr_node.getNumber()
-            if self.tree.size() == 0:
+            if self.tree.size() == 0 or curr_node.getParent() == None:
                 self.tree.create_node(number, number, data=nodeData(curr_node, self.model.getLPObjVal(), self.model))
             else:
                 variables, branch_bounds, bound_types = curr_node.getParentBranchings()
@@ -101,15 +100,54 @@ class MyNodesel(Nodesel):
         return self.probs[node2Idx] - self.probs[node1Idx]
 
 
-class linNodeSel(Nodesel):
-    def __init__(self, model, policy):
+class LinNodesel(Nodesel):
+    def __init__(self, model, policy, dataset):
         self.policy = policy
         self.model = model
+        self.dataset = dataset
+        self.nodeToParent = {}
+        self.tree = Tree()
+
 
     def nodeselect(self):
         listOfNodes = list(itertools.chain.from_iterable(self.model.getOpenNodes()))
-
+        if len(listOfNodes) == 0:
+            return {"selnode": None}
         optimalNode = listOfNodes[0]
+        optimalVal = self.policy(getNodeFeature(optimalNode, self.model))
+        for i in range(1,len(listOfNodes)):
+            challengerVal = self.policy(getNodeFeature(listOfNodes[i], self.model))
+            if challengerVal > optimalVal:
+                optimalVal = challengerVal
+                optimalNode = listOfNodes[i]
+
+        curr_node = self.model.getCurrentNode()
+
+        if curr_node != None :
+            number = curr_node.getNumber()
+            if self.tree.size() == 0 or curr_node.getParentBranchings() == None or curr_node.getNumber() == 1:
+                self.tree = Tree()
+                self.tree.create_node(number, number, data=nodeData(curr_node, self.model.getLPObjVal(), self.model))
+            else:
+                variables, branch_bounds, bound_types = curr_node.getParentBranchings()
+                parent_node = curr_node.getParent()
+                parent_num = parent_node.getNumber()
+                try:
+                    self.tree.create_node(number, number, parent=parent_num,
+                                          data=nodeData(curr_node, self.model.getLPObjVal(), self.model,
+                                                        variables=variables,
+                                                        bound_types=bound_types, branch_bounds=branch_bounds))
+                except:
+                    pass
+
+        idToFeature = {}
+        for node in listOfNodes:
+            idToFeature[node.getNumber()] = getNodeFeature(node, self.model)
+
+        self.dataset.append(idToFeature)
+
+        return {"selnode": optimalNode }
+
 
 
     def nodecomp(self, node1, node2):
