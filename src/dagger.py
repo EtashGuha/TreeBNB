@@ -24,7 +24,7 @@ import sys
 import faulthandler
 from TreeLSTM import TreeLSTMCell, TreeLSTM
 from NodeSel import MyNodesel, LinNodesel
-from nodeutil import getListOptimalID
+from nodeutil import getListOptimalID, checkIsOptimal
 from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
     Branchrule, Nodesel
 import glob
@@ -75,19 +75,9 @@ class Dagger():
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
                 for node in ourNodeSel.tree.leaves():
-                    isOptimal = True
-                    variables = node.data.variables
-                    bound_types = node.data.bound_types
-                    branch_bounds = node.data.branch_bounds
-                    for i in range(len(variables)):
-                        optval = model.getVal(variables[i])
-                        if ((bound_types[i] == 0 and optval < branch_bounds[i]) or (
-                                bound_types[i] == 1 and optval > branch_bounds[i])):
-                            isOptimal = False
-                            break
-                    if isOptimal:
+                    if checkIsOptimal(node, model, ourNodeSel.tree):
                         optimal_node = node
-                        break
+                        print("FOUND OPTIMal")
 
                 if optimal_node is None:
                     continue
@@ -166,7 +156,7 @@ class LinDagger():
                 step_ids = []
                 ourNodeSel = LinNodesel(model, self.policy, dataset=temp_features)
                 model.readProblem(problem)
-                # model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
                 try:
                     model.optimize()
                 except:
@@ -175,21 +165,12 @@ class LinDagger():
                 self.listNNodes.append(model.getNNodes())
                 print(self.listNNodes)
                 optimal_node = None
-                # ourNodeSel.tree.show(data_property="nodeid")
+                # ourNodeSel.tree.show(data_property="variables")
                 for node in ourNodeSel.tree.leaves():
-                    isOptimal = True
-                    variables = node.data.variables
-                    bound_types = node.data.bound_types
-                    branch_bounds = node.data.branch_bounds
-                    for i in range(len(variables)):
-                        optval = model.getVal(variables[i])
-                        if ((bound_types[i] == 0 and optval < branch_bounds[i]) or (
-                                bound_types[i] == 1 and optval > branch_bounds[i])):
-                            isOptimal = False
-                        print("IM OPTIMAL")
-                    if isOptimal:
+                    if checkIsOptimal(node, model, ourNodeSel.tree):
                         optimal_node = node
-                        break
+                        print("FOUND OPTIMal")
+
 
                 if optimal_node is None:
                     continue
@@ -211,7 +192,7 @@ class LinDagger():
                 samples = list(zip(self.sfeature_list, self.soracle))
 
                 # print(optimal_ids)
-                s_loader = DataLoader(samples, batch_size=4, shuffle=True)
+                s_loader = DataLoader(samples, batch_size=1, shuffle=True)
                 for epoch in range(10):
                     running_loss = 0.0
                     for i, (feature, label) in enumerate(s_loader):

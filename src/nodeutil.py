@@ -13,7 +13,22 @@ class nodeData():
         self.branch_bounds = branch_bounds
         self.bound_types = bound_types
 
-
+def checkIsOptimal(node, model, tree):
+    if tree.parent(node.tag) is not None and not checkIsOptimal(tree.parent(node.tag), model, tree):
+        return False
+    if tree.parent(node.tag) is None:
+        return True
+    isOptimal = True
+    variables = node.data.variables
+    bound_types = node.data.bound_types
+    branch_bounds = node.data.branch_bounds
+    for i in range(len(variables)):
+        optval = model.getVal(variables[i])
+        if ((bound_types[i] == 0 and optval < branch_bounds[i]) or (
+                bound_types[i] == 1 and optval > branch_bounds[i])):
+            isOptimal = False
+            break
+    return isOptimal
 # %%
 def getNodeFeature(node, model):
 
