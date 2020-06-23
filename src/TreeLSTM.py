@@ -79,6 +79,7 @@ class TreeLSTM(nn.Module):
         g.ndata['h'] = h
         g.ndata['c'] = c
         # propagate
+        dgl.prop_nodes_topo(g, reverse=True)
         dgl.prop_nodes_topo(g)
         # compute logits
         h = self.dropout(g.ndata['h'])
@@ -89,7 +90,9 @@ class TreeLSTM(nn.Module):
         nonZeroed = vals[vals.nonzero()]
         probs = nonZeroed.squeeze(dim=1)
         return probs, ids
-
+    #Leaf to the root and then go back to leaf
+    #Supervised learning to initialize
+    #Use dagger sampling to improve
 class LinLib(nn.Module):
     def __init__(self, in_dim):
         super(LinLib, self).__init__()

@@ -31,8 +31,41 @@ import glob
 import os
 faulthandler.enable()
 torch.set_printoptions(precision=10)
+def plot_tree(g):
+    # this plot requires pygraphviz package
+    pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
+    nx.draw(g, pos, with_labels=True, node_size=50,
+            node_color=[[.5, .5, .5]], arrowsize=4)
+    plt.show()
+
+def collate(samples):
+    graphs, labels, debug = map(list, zip(*samples))
+    batched_graph = dgl.batch(graphs)
+    return batched_graph, torch.tensor(labels)
+
+
+def size_splits(tensor, split_sizes, dim=0):
+    """Splits the tensor according to chunks of split_sizes.
+
+    Arguments:
+        tensor (Tensor): tensor to split.
+        split_sizes (list(int)): sizes of chunks
+        dim (int): dimension along which to split the tensor.
+    """
+    if dim < 0:
+        dim += tensor.dim()
+
+    dim_size = tensor.size(dim)
+    if dim_size != torch.sum(torch.Tensor(split_sizes)):
+        raise KeyError("Sum of split sizes exceeds tensor dim")
+
+    splits = torch.cumsum(torch.Tensor([0] + split_sizes), dim=0)[:-1]
+
+    return tuple(tensor.narrow(int(dim), int(start), int(length))
+                 for start, length in zip(splits, split_sizes))
+
 class Dagger():
-    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1):
+    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5):
         self.policy = selector
         self.problems = glob.glob(problem_dir + "/*.lp")
         if num_train is None:
@@ -43,11 +76,13 @@ class Dagger():
         self.sfeature_list = []
         self.soracle = []
         self.loss = nn.CrossEntropyLoss()
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-7)
         self.device = device
         self.prev = None
         self.num_epoch = num_epoch
-
+        self.listNNodes = []
+        self.debug = []
+        self.batch_size = 5
     def train(self):
         self.policy.train()
         counter = 0
@@ -58,9 +93,7 @@ class Dagger():
                 counter += 1
 
                 temp_features = []
-
-                print(problem)
-                print(counter)
+                torch.autograd.set_detect_anomaly(True)
                 model = Model("setcover")
                 model.setIntParam('separating/maxroundsroot', 0)
                 model.setBoolParam('conflict/enable', False)
@@ -70,8 +103,10 @@ class Dagger():
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
                 model.optimize()
 
+                self.listNNodes.append(model.getNNodes())
+                print(self.listNNodes)
+
                 optimal_node = None
-                # ourNodeSel.tree.show(data_property="nodeid")
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
                 for node in ourNodeSel.tree.leaves():
@@ -84,6 +119,7 @@ class Dagger():
 
                 optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
                 print(optimal_ids)
+                # print(optimal_ids)
                 for i in range(len(temp_features)):
                     queue_contains_optimal = False
                     optimal_id = None
@@ -94,26 +130,54 @@ class Dagger():
                             optimal_id = id
                             break
                     if queue_contains_optimal:
+
+                        self.debug.append((optimal_id, step_ids))
                         self.soracle.append((step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0])
                         self.sfeature_list.append(temp_features[i])
 
-                samples = list(zip(self.sfeature_list, self.soracle))
+                samples = list(zip(self.sfeature_list, self.soracle, self.debug))
 
                 # print(optimal_ids)
-                #             s_loader = DataLoader(samples, batch_size=32, shuffle=True, collate_fn=collate)
-                for (bg, label) in samples:
-                    self.optimizer.zero_grad()
-                    g = bg
-                    n = g.number_of_nodes()
-                    h_size = 14
-                    h = torch.zeros((n, h_size))
-                    c = torch.zeros((n, h_size))
-                    output, _ = self.policy(g, h, c)
-                    output = output.unsqueeze(0)
-                    label = label.unsqueeze(0)
-                    loss = self.loss(output, label)
-                    loss.backward()
-                    self.optimizer.step()
+                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+                print(len(samples))
+                for epoch in range(6):
+                    running_loss = 0.0
+                    number_right = 0
+
+                    for (bg, labels) in s_loader:
+                        self.optimizer.zero_grad()
+                        unbatched = dgl.unbatch(bg)
+                        sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
+                        g = bg
+                        n = g.number_of_nodes()
+                        h_size = 14
+                        h = torch.zeros((n, h_size))
+                        c = torch.zeros((n, h_size))
+                        outputs, _ = self.policy(g, h, c)
+                        outputs = size_splits(outputs, sizes)
+                        total_loss = None
+                        for i in range(len(unbatched)):
+                            output = outputs[i]
+                            label = labels[i]
+                            _, indices = torch.max(output, 0)
+                            if indices.item() == label.item():
+                                number_right += 1
+                            output = output.unsqueeze(0)
+                            label = label.unsqueeze(0)
+                            loss = self.loss(output, label)
+                            if total_loss == None:
+                                total_loss = loss
+                            else:
+                                total_loss = total_loss + loss
+                            running_loss += loss.item()
+                        self.optimizer.zero_grad()
+                        total_loss.backward()
+                        self.optimizer.step()
+
+                    print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
+                          (epoch + 1, running_loss / len(samples), number_right/len(samples), number_right))
+                    running_loss = 0.0
+
                 if os.path.exists("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt"):
                     os.remove("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt")
                 torch.save(self.policy.state_dict(), "/Users/etashguha/Documents/TreeBnB/lstmFeature.pt")
@@ -156,7 +220,7 @@ class LinDagger():
                 step_ids = []
                 ourNodeSel = LinNodesel(model, self.policy, dataset=temp_features)
                 model.readProblem(problem)
-                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+                # model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
                 try:
                     model.optimize()
                 except:
@@ -193,7 +257,7 @@ class LinDagger():
 
                 # print(optimal_ids)
                 s_loader = DataLoader(samples, batch_size=1, shuffle=True)
-                for epoch in range(10):
+                for epoch in range(3):
                     running_loss = 0.0
                     for i, (feature, label) in enumerate(s_loader):
                         self.optimizer.zero_grad()

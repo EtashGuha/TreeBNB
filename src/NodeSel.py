@@ -12,6 +12,11 @@ import copy
 from nodeutil import nodeData, getNodeFeature, _build_tree
 import faulthandler
 faulthandler.enable()
+import matplotlib.pyplot as plt
+
+
+
+
 
 class MyNodesel(Nodesel):
     def __init__(self, model, policy, dataset=None,  step_ids=None):
@@ -71,7 +76,8 @@ class MyNodesel(Nodesel):
         dgltree.from_networkx(g, node_attrs=["feature", "node_id", "in_queue"])
 
         # To calculate node features via lstm
-        probs, ids = self.calcLSTMFeatures(dgltree)
+        with torch.no_grad():
+            probs, ids = self.calcLSTMFeatures(dgltree)
 
         self.probs = probs
         self.ids = ids
@@ -79,6 +85,7 @@ class MyNodesel(Nodesel):
         self.dataset.append(dgltree)
 
         if len(probs) != 0:
+
             _, indices = torch.max(probs, 0)
             best_id = ids[indices]
             return {"selnode": self.id_to_node[best_id[0].item()]}

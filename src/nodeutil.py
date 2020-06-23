@@ -45,7 +45,7 @@ def getNodeFeature(node, model):
              model.getDualbound(), node.getNDomchg()[0], node.getNDomchg()[1], node.getNDomchg()[2],
              node.getNAddedConss(),
              node.isActive(), node.isPropagatedAgain(), model.getGap(), 0])
-
+    #Shallow Neural Network
 # %%
 def getListOptimalID(initial_id, tree):
     optimal_nodes = {initial_id}
