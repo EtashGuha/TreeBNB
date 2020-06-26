@@ -80,6 +80,7 @@ class Dagger():
         self.device = device
         self.prev = None
         self.num_epoch = num_epoch
+        self.num_train = num_train
         self.listNNodes = []
         self.debug = []
         self.batch_size = 5
@@ -91,7 +92,7 @@ class Dagger():
                 if counter > self.num_train:
                     break
                 counter += 1
-
+                print(problem)
                 temp_features = []
                 torch.autograd.set_detect_anomaly(True)
                 model = Model("setcover")
@@ -113,7 +114,7 @@ class Dagger():
                     if checkIsOptimal(node, model, ourNodeSel.tree):
                         optimal_node = node
                         print("FOUND OPTIMal")
-
+                        break
                 if optimal_node is None:
                     continue
 
@@ -140,7 +141,7 @@ class Dagger():
                 # print(optimal_ids)
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
                 print(len(samples))
-                for epoch in range(6):
+                for epoch in range(4):
                     running_loss = 0.0
                     number_right = 0
 
@@ -153,7 +154,9 @@ class Dagger():
                         h_size = 14
                         h = torch.zeros((n, h_size))
                         c = torch.zeros((n, h_size))
-                        outputs, _ = self.policy(g, h, c)
+                        iou = torch.zeros((n, 3 * h_size))
+
+                        outputs, _ = self.policy(g, h, c, iou)
                         outputs = size_splits(outputs, sizes)
                         total_loss = None
                         for i in range(len(unbatched)):

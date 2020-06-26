@@ -35,7 +35,9 @@ class MyNodesel(Nodesel):
         n = g.number_of_nodes()
         h = torch.zeros((n, h_size))
         c = torch.zeros((n, h_size))
-        return self.policy(g, h, c)
+        iou = torch.zeros((n, 3 * h_size))
+
+        return self.policy(g, h, c, iou)
 
     def nodeselect(self):
         '''first method called in each iteration in the main solving loop. '''
