@@ -7,7 +7,7 @@ import scipy
 import argparse
 import os
 from itertools import combinations
-
+import scipy.sparse
 
 class Graph:
     """
@@ -600,13 +600,12 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--seed',
         help='Random generator seed (default 0).',
-        type=ut.valid_seed,
         default=0,
     )
 
     args = parser.parse_args()
 
-    rng = np.random.RandomState(args.seed)
+    rng = np.random.RandomState(int(args.seed))
 
     if args.problem == 'setcover':
         nrows = 150
@@ -625,8 +624,9 @@ if __name__ == '__main__':
         # train instances
         n_train= 20
         for i in range(n_train):
-            lp_dir = f'../data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se/instance_{i+1}'
-            os.makedirs(lp_dir)
+            lp_dir = f'../data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
+            if not os.path.exists(lp_dir):
+                os.makedirs(lp_dir)
             lp_dirs.append(lp_dir)
         filenames.extend([os.path.join(lp_dirs[i], f'instance_{i+1}.lp') for i in range(n_train)])
         filenames_pkl.extend([os.path.join(lp_dirs[i], f'instance_{i+1}.pkl') for i in range(n_train)])

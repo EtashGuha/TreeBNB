@@ -68,6 +68,8 @@ class Dagger():
     def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5):
         self.policy = selector
         self.problems = glob.glob(problem_dir + "/*.lp")
+        print(problem_dir)
+        print(self.problems)
         if num_train is None:
             self.num_train = len(self.problems)
         else:
@@ -76,7 +78,7 @@ class Dagger():
         self.sfeature_list = []
         self.soracle = []
         self.loss = nn.CrossEntropyLoss()
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-7)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
         self.device = device
         self.prev = None
         self.num_epoch = num_epoch
@@ -96,8 +98,6 @@ class Dagger():
                 temp_features = []
                 torch.autograd.set_detect_anomaly(True)
                 model = Model("setcover")
-                model.setIntParam('separating/maxroundsroot', 0)
-                model.setBoolParam('conflict/enable', False)
                 step_ids = []
                 ourNodeSel = MyNodesel(model, self.policy, dataset=temp_features, step_ids=step_ids)
                 model.readProblem(problem)
@@ -115,32 +115,29 @@ class Dagger():
                         optimal_node = node
                         print("FOUND OPTIMal")
                         break
-                if optimal_node is None:
-                    continue
 
-                optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
-                print(optimal_ids)
-                # print(optimal_ids)
-                for i in range(len(temp_features)):
-                    queue_contains_optimal = False
-                    optimal_id = None
-                    idlist = step_ids[i].flatten().tolist()
-                    for id in idlist:
-                        if id in optimal_ids:
-                            queue_contains_optimal = True
-                            optimal_id = id
-                            break
-                    if queue_contains_optimal:
+                if optimal_node is not None:
+                    optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
+                    # print(optimal_ids)
+                    print(len(temp_features))
+                    for i in range(len(temp_features)):
+                        queue_contains_optimal = False
+                        optimal_id = None
+                        idlist = step_ids[i].flatten().tolist()
+                        for id in idlist:
+                            if id in optimal_ids:
+                                queue_contains_optimal = True
+                                optimal_id = id
+                                break
+                        if queue_contains_optimal:
 
-                        self.debug.append((optimal_id, step_ids))
-                        self.soracle.append((step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0])
-                        self.sfeature_list.append(temp_features[i])
+                            self.debug.append((optimal_id, step_ids))
+                            self.soracle.append((step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0])
+                            self.sfeature_list.append(temp_features[i])
 
-                samples = list(zip(self.sfeature_list, self.soracle, self.debug))
-
-                # print(optimal_ids)
+                samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1500:]
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-                print(len(samples))
+
                 for epoch in range(4):
                     running_loss = 0.0
                     number_right = 0

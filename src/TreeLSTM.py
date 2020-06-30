@@ -92,7 +92,7 @@ class TreeLSTM(nn.Module):
         dgl.prop_nodes_topo(g, reverse=True)
         dgl.prop_nodes_topo(g)
         # compute logits
-        h = self.dropout(g.ndata['h'])
+        h = g.ndata['h']
         ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
         tas = self.linear(h).squeeze(0)
         vals = tas * torch.autograd.Variable(g.ndata["in_queue"].unsqueeze(dim=1))

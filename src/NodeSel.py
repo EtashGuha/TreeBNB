@@ -47,6 +47,7 @@ class MyNodesel(Nodesel):
         if curr_node != None:
             number = curr_node.getNumber()
             if self.tree.size() == 0 or curr_node.getParent() == None:
+                self.tree = Tree()
                 self.tree.create_node(number, number, data=nodeData(curr_node, self.model.getLPObjVal(), self.model))
             else:
                 variables, branch_bounds, bound_types = curr_node.getParentBranchings()
