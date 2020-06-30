@@ -113,13 +113,10 @@ class Dagger():
                 for node in ourNodeSel.tree.leaves():
                     if checkIsOptimal(node, model, ourNodeSel.tree):
                         optimal_node = node
-                        print("FOUND OPTIMal")
                         break
 
                 if optimal_node is not None:
                     optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
-                    # print(optimal_ids)
-                    print(len(temp_features))
                     for i in range(len(temp_features)):
                         queue_contains_optimal = False
                         optimal_id = None
@@ -137,7 +134,7 @@ class Dagger():
 
                 samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1500:]
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-
+                print('Number of datapoints: %d' % (len(samples)))
                 for epoch in range(4):
                     running_loss = 0.0
                     number_right = 0
@@ -253,7 +250,7 @@ class LinDagger():
                                 self.sfeature_list.append(idToFeature[otherid] - idToFeature[id])
                                 self.soracle.append(torch.tensor([-1], dtype=torch.float32));
 
-                samples = list(zip(self.sfeature_list, self.soracle))
+                samples = list(zip(self.sfeature_list, self.soracle))[-1500:]
 
                 # print(optimal_ids)
                 s_loader = DataLoader(samples, batch_size=1, shuffle=True)

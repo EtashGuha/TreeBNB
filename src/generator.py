@@ -608,8 +608,8 @@ if __name__ == '__main__':
     rng = np.random.RandomState(int(args.seed))
 
     if args.problem == 'setcover':
-        nrows = 150
-        ncols = 300
+        nrows = 200
+        ncols = 400
         dens = 0.1
 
         max_coef = 0
@@ -622,7 +622,7 @@ if __name__ == '__main__':
         lp_dirs = []
 
         # train instances
-        n_train= 20
+        n_train= 100
         for i in range(n_train):
             lp_dir = f'../data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
             if not os.path.exists(lp_dir):
@@ -647,18 +647,19 @@ if __name__ == '__main__':
         # ncolss.extend([ncols] * n_valid)
         # denss.extend([dens] * n_valid)
         #
-        # # test instances
-        # n_test = 200
-        # for i in range(n_test):
-        #     lp_dir = f'../data/instances/setcover/test_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se/instance_{i+1}'
-        #     os.makedirs(lp_dir)
-        #     lp_dirs.append(lp_dir)
-        # # print(f"{n} instances in {lp_dir}")
-        # filenames.extend([os.path.join(lp_dirs[n_train+n_valid+i], f'instance_{i+1}.lp') for i in range(n_test)])
-        # filenames_pkl.extend([os.path.join(lp_dirs[n_train+n_valid+i], f'instance_{i+1}.pkl') for i in range(n_test)])
-        # nrowss.extend([nrows] * n_test)
-        # ncolss.extend([ncols] * n_test)
-        # denss.extend([dens] * n_test)
+        # test instances
+        n_test = 20
+        for i in range(n_test):
+            lp_dir = f'../data/instances/setcover/test_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
+            if not os.path.exists((lp_dir)):
+                os.makedirs(lp_dir)
+            lp_dirs.append(lp_dir)
+        # print(f"{n} instances in {lp_dir}")
+        filenames.extend([os.path.join(lp_dirs[n_train+i], f'instance_{i+1}.lp') for i in range(n_test)])
+        filenames_pkl.extend([os.path.join(lp_dirs[n_train++i], f'instance_{i+1}.pkl') for i in range(n_test)])
+        nrowss.extend([nrows] * n_test)
+        ncolss.extend([ncols] * n_test)
+        denss.extend([dens] * n_test)
 
         # medium transfer instances
         # n_medium = 100
