@@ -84,8 +84,9 @@ class MyNodesel(Nodesel):
 
         self.probs = probs
         self.ids = ids
-        self.step_ids.append(ids)
-        self.dataset.append(dgltree)
+        if self.step_ids is not None and self.dataset is not None:
+            self.step_ids.append(ids)
+            self.dataset.append(dgltree)
 
         if len(probs) != 0:
 

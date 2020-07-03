@@ -103,9 +103,10 @@ class TreeLSTM(nn.Module):
     #Leaf to the root and then go back to leaf
     #Supervised learning to initialize
     #Use dagger sampling to improve
-class LinLib(nn.Module):
+
+class ShallowLib(nn.Module):
     def __init__(self, in_dim):
-        super(LinLib, self).__init__()
+        super(ShallowLib, self).__init__()
         self.fc1 = nn.Linear(in_dim, 2 * in_dim)
         self.fc2 = nn.Linear(2 * in_dim, in_dim)
         self.fc3 = nn.Linear(in_dim, 1)
@@ -114,3 +115,11 @@ class LinLib(nn.Module):
         x = self.fc1(x)
         x = self.fc2(x)
         return self.fc3(x)
+
+class LinLib(nn.Module):
+    def __init__(self, in_dim):
+        super(LinLib, self).__init__()
+        self.fc1 = nn.Linear(in_dim, 1)
+
+    def forward(self, x):
+        return self.fc1(x)
