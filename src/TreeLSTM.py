@@ -101,7 +101,6 @@ class TreeLSTM(nn.Module):
         vals = vals.squeeze(dim=1)
         nonZeroed = vals[vals.nonzero()]
         probs = nonZeroed.squeeze(dim=1)
-        print(probs.device)
         return probs, ids
     #Leaf to the root and then go back to leaf
     #Supervised learning to initialize
