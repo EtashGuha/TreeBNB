@@ -78,29 +78,31 @@ class TreeLSTM(nn.Module):
         logits : Tensor
             The prediction of each node.
         """
-        with torch.cuda.device(0):
-            g.register_message_func(self.cell.message_func)
-            g.register_reduce_func(self.cell.reduce_func)
-            g.register_apply_node_func(self.cell.apply_node_func)
-            # feed embedding
-            features = g.ndata["feature"]
-            g.ndata['Wx'] = self.cell.W_iou(features)
-            g.ndata["Wfx"] = self.cell.W_f(features)
-            g.ndata["iou"] = iou
-            g.ndata['h'] = h
-            g.ndata['c'] = c
-            # propagate
-            dgl.prop_nodes_topo(g, reverse=True)
-            dgl.prop_nodes_topo(g)
-            # compute logits
-            h = g.ndata['h']
-            ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
-            tas = self.linear(h).squeeze(0)
-            vals = tas * torch.autograd.Variable(g.ndata["in_queue"].unsqueeze(dim=1))
-            vals = vals.squeeze(dim=1)
-            nonZeroed = vals[vals.nonzero()]
-            probs = nonZeroed.squeeze(dim=1)
-            return probs, ids
+
+        g.to(self.device)
+        print(g.device)
+        g.register_message_func(self.cell.message_func)
+        g.register_reduce_func(self.cell.reduce_func)
+        g.register_apply_node_func(self.cell.apply_node_func)
+        # feed embedding
+        features = g.ndata["feature"]
+        g.ndata['Wx'] = self.cell.W_iou(features)
+        g.ndata["Wfx"] = self.cell.W_f(features)
+        g.ndata["iou"] = iou
+        g.ndata['h'] = h
+        g.ndata['c'] = c
+        # propagate
+        dgl.prop_nodes_topo(g, reverse=True)
+        dgl.prop_nodes_topo(g)
+        # compute logits
+        h = g.ndata['h']
+        ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
+        tas = self.linear(h).squeeze(0)
+        vals = tas * torch.autograd.Variable(g.ndata["in_queue"].unsqueeze(dim=1))
+        vals = vals.squeeze(dim=1)
+        nonZeroed = vals[vals.nonzero()]
+        probs = nonZeroed.squeeze(dim=1)
+        return probs, ids
     #Leaf to the root and then go back to leaf
     #Supervised learning to initialize
     #Use dagger sampling to improve
