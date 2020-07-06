@@ -79,8 +79,6 @@ class TreeLSTM(nn.Module):
             The prediction of each node.
         """
 
-        g.to(self.device)
-        print(g.device)
         g.register_message_func(self.cell.message_func)
         g.register_reduce_func(self.cell.reduce_func)
         g.register_apply_node_func(self.cell.apply_node_func)
@@ -91,11 +89,13 @@ class TreeLSTM(nn.Module):
         g.ndata["iou"] = iou
         g.ndata['h'] = h
         g.ndata['c'] = c
+        g.to(self.device)
         # propagate
         dgl.prop_nodes_topo(g, reverse=True)
         dgl.prop_nodes_topo(g)
         # compute logits
         h = g.ndata['h']
+        print(h.device)
         ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
         tas = self.linear(h).squeeze(0)
         vals = tas * torch.autograd.Variable(g.ndata["in_queue"].unsqueeze(dim=1))
