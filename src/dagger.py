@@ -233,7 +233,9 @@ class TreeDagger(Dagger):
                         if queue_contains_optimal:
                             self.debug.append((optimal_id, step_ids))
                             oracle_val = (step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0]
-                            self.soracle.append(oracle_val.to(device=self.device))
+                            oracle_val = oracle_val.to(device=self.device)
+                            print(oracle_val.device)
+                            self.soracle.append(oracle_val)
                             self.sfeature_list.append(temp_features[i])
 
                 samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1500:]
