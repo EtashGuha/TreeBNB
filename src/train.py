@@ -21,7 +21,7 @@ lstmFeature = TreeLSTM(x_size,
                        dropout,
                        device=torch.device("cuda:0"))
 lstmFeature.to(torch.device("cuda:0"))
-
+lstmFeature.cell.to(torch.device("cuda:0"))
 if os.path.exists("../lstmFeature.pt"):
     lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
