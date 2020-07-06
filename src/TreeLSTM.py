@@ -84,7 +84,7 @@ class TreeLSTM(nn.Module):
         g.register_apply_node_func(self.cell.apply_node_func)
         # feed embedding
         features = g.ndata["feature"]
-        features.to(device=self.device)
+        features = features.to(device=self.device)
         print(features.device)
         g.ndata['Wx'] = self.cell.W_iou(features)
         g.ndata["Wfx"] = self.cell.W_f(features)
