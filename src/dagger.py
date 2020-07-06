@@ -65,8 +65,9 @@ def size_splits(tensor, split_sizes, dim=0):
                  for start, length in zip(splits, split_sizes))
 
 class Dagger():
-    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5):
+    def __init__(self, selector, problem_dir, device, loss, num_train=None, num_epoch = 1, batch_size=5, save_path=None):
         self.policy = selector
+        self.save_path = save_path
         self.problems = glob.glob(problem_dir + "/*.lp")
         if num_train is None:
             self.num_train = len(self.problems)
@@ -75,7 +76,7 @@ class Dagger():
         self.model = Model("setcover")
         self.sfeature_list = []
         self.soracle = []
-        self.loss = nn.CrossEntropyLoss()
+        self.loss = loss
         self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
         self.device = device
         self.prev = None
@@ -83,7 +84,110 @@ class Dagger():
         self.num_train = num_train
         self.listNNodes = []
         self.debug = []
-        self.batch_size = 5
+        self.batch_size = batch_size
+
+    def test(self, problems, MyNodesel):
+        with torch.no_grad():
+            real_problems = glob.glob(problems + "/*.lp")
+            num_nodes = []
+            default = []
+            for problem in real_problems:
+                print(problem)
+                model = Model("setcover")
+                ourNodeSel = MyNodesel(model, self.policy)
+                model.readProblem(problem)
+                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+                model.optimize()
+                num_nodes.append(model.getNNodes())
+            for problem in real_problems:
+                print(problem)
+                model = Model("setcover")
+                model.readProblem(problem)
+                model.optimize()
+                default.append(model.getNNodes())
+        return num_nodes, default
+
+class RankDagger(Dagger):
+    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch=1, time_limit=200, save_path=None):
+        super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train=num_train, num_epoch=num_epoch, save_path=save_path)
+        self.nodesel = LinNodesel
+        self.time_limit = time_limit
+    def train(self):
+        self.policy.train()
+        counter = 0
+        for epoch in range(self.num_epoch):
+            for problem in self.problems:
+                if counter > self.num_train:
+                    break
+                counter += 1
+
+                temp_features = []
+
+                model = Model("setcover")
+                model.setRealParam('limits/time', self.time_limit)
+                ourNodeSel = self.nodesel(model, self.policy, dataset=temp_features)
+                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+                model.readProblem(problem)
+                print(model.getStatus())
+                try:
+                    model.optimize()
+                except:
+                    continue
+                self.listNNodes.append(model.getNNodes())
+                print(self.listNNodes)
+                optimal_node = None
+                # ourNodeSel.tree.show(data_property="variables")
+                for node in ourNodeSel.tree.leaves():
+                    if checkIsOptimal(node, model, ourNodeSel.tree):
+                        optimal_node = node
+                        print("FOUND OPTIMal")
+
+                if optimal_node is None:
+                    print("SCIPPING HERE")
+                    continue
+
+                optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
+
+                for idToFeature in temp_features:
+                    ids = idToFeature.keys()
+                    for id in ids:
+                        if id in optimal_ids:
+                            for otherid in ids:
+                                if id == otherid:
+                                    continue
+                                self.sfeature_list.append(idToFeature[id] - idToFeature[otherid])
+                                self.soracle.append(torch.tensor([1], dtype=torch.float32));
+                                self.sfeature_list.append(idToFeature[otherid] - idToFeature[id])
+                                self.soracle.append(torch.tensor([-1], dtype=torch.float32));
+
+                samples = list(zip(self.sfeature_list, self.soracle))[-1500:]
+
+                # print(optimal_ids)
+                s_loader = DataLoader(samples, batch_size=1, shuffle=True)
+                for epoch in range(3):
+                    running_loss = 0.0
+                    for i, (feature, label) in enumerate(s_loader):
+                        self.optimizer.zero_grad()
+                        output = self.policy(feature)
+                        loss = self.loss(output, label)
+                        loss.backward()
+                        self.optimizer.step()
+                        running_loss += loss.item()
+                    print('[%d] loss: %.3f' %
+                          (epoch + 1, running_loss / len(s_loader)))
+                    running_loss = 0.0
+
+                if os.path.exists(self.save_path):
+                    os.remove(self.save_path)
+                torch.save(self.policy.state_dict(), self.save_path)
+    def test(self, problems):
+        super().test(self, problems, self.nodesel)
+
+class TreeDagger(Dagger):
+    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5, save_path=None):
+        super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path)
+        self.nodesel = MyNodesel
+
     def train(self):
         self.policy.train()
         counter = 0
@@ -97,7 +201,7 @@ class Dagger():
                 torch.autograd.set_detect_anomaly(True)
                 model = Model("setcover")
                 step_ids = []
-                ourNodeSel = MyNodesel(model, self.policy, dataset=temp_features, step_ids=step_ids)
+                ourNodeSel = self.nodesel(model, self.policy, dataset=temp_features, step_ids=step_ids)
                 model.readProblem(problem)
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
                 model.optimize()
@@ -173,218 +277,10 @@ class Dagger():
                           (epoch + 1, running_loss / len(samples), number_right/len(samples), number_right))
                     running_loss = 0.0
 
-                if os.path.exists("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt"):
-                    os.remove("/Users/etashguha/Documents/TreeBNB/lstmFeature.pt")
-                torch.save(self.policy.state_dict(), "/Users/etashguha/Documents/TreeBnB/lstmFeature.pt")
+                if os.path.exists(self.save_path):
+                    os.remove(self.save_path)
+                torch.save(self.policy.state_dict(), self.save_path)
+
 
     def test(self, problems):
-        with torch.no_grad():
-            real_problems = glob.glob(problems + "/*.lp")
-            num_nodes = []
-            default = []
-            for problem in real_problems:
-                print(problem)
-                model = Model("setcover")
-                ourNodeSel = MyNodesel(model, self.policy)
-                model.readProblem(problem)
-                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
-                model.optimize()
-                num_nodes.append(model.getNNodes())
-            for problem in real_problems:
-                print(problem)
-                model = Model("setcover")
-                model.readProblem(problem)
-                model.optimize()
-                default.append(model.getNNodes())
-        return num_nodes, default
-
-class LinDagger():
-    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1):
-        self.policy = selector
-        self.problems = glob.glob(problem_dir + "/*.lp")
-        if num_train is None:
-            self.num_train = len(self.problems)
-        else:
-            self.num_train = num_train
-        self.model = Model("setcover")
-        self.sfeature_list = []
-        self.soracle = []
-        self.loss = nn.MSELoss()
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
-        self.device = device
-        self.prev = None
-        self.num_epoch = num_epoch
-        self.listNNodes = []
-
-    def train(self):
-        self.policy.train()
-        counter = 0
-        for epoch in range(self.num_epoch):
-            for problem in self.problems:
-                if counter > self.num_train:
-                    break
-                counter += 1
-
-                temp_features = []
-
-                model = Model("setcover")
-                ourNodeSel = LinNodesel(model, self.policy, dataset=temp_features)
-                model.readProblem(problem)
-                try:
-                    model.optimize()
-                except:
-                    continue
-
-                self.listNNodes.append(model.getNNodes())
-                print(self.listNNodes)
-                optimal_node = None
-                # ourNodeSel.tree.show(data_property="variables")
-                for node in ourNodeSel.tree.leaves():
-                    if checkIsOptimal(node, model, ourNodeSel.tree):
-                        optimal_node = node
-                        print("FOUND OPTIMal")
-
-
-                if optimal_node is None:
-                    continue
-
-                optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
-
-                for idToFeature in temp_features:
-                    ids = idToFeature.keys()
-                    for id in ids:
-                        if id in optimal_ids:
-                            for otherid in ids:
-                                if id == otherid:
-                                    continue
-                                self.sfeature_list.append(idToFeature[id] - idToFeature[otherid])
-                                self.soracle.append(torch.tensor([1], dtype=torch.float32));
-                                self.sfeature_list.append(idToFeature[otherid] - idToFeature[id])
-                                self.soracle.append(torch.tensor([-1], dtype=torch.float32));
-
-                samples = list(zip(self.sfeature_list, self.soracle))[-1500:]
-
-                # print(optimal_ids)
-                s_loader = DataLoader(samples, batch_size=1, shuffle=True)
-                for epoch in range(3):
-                    running_loss = 0.0
-                    for i, (feature, label) in enumerate(s_loader):
-                        self.optimizer.zero_grad()
-                        output= self.policy(feature)
-                        loss = self.loss(output, label)
-                        loss.backward()
-                        self.optimizer.step()
-                        running_loss += loss.item()
-                    print('[%d] loss: %.3f' %
-                          (epoch + 1, running_loss/len(s_loader)))
-                    running_loss = 0.0
-
-                if os.path.exists("/Users/etashguha/Documents/TreeBNB/linlstmFeature.pt"):
-                    os.remove("/Users/etashguha/Documents/TreeBNB/linlstmFeature.pt")
-                torch.save(self.policy.state_dict(), "/Users/etashguha/Documents/TreeBnB/linlstmFeature.pt")
-
-class ShallowDagger():
-    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1):
-        self.policy = selector
-        self.problems = glob.glob(problem_dir + "/*.lp")
-        if num_train is None:
-            self.num_train = len(self.problems)
-        else:
-            self.num_train = num_train
-        self.model = Model("setcover")
-        self.sfeature_list = []
-        self.soracle = []
-        self.loss = nn.MSELoss()
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
-        self.device = device
-        self.prev = None
-        self.num_epoch = num_epoch
-        self.listNNodes = []
-
-    def train(self):
-        self.policy.train()
-        counter = 0
-        for epoch in range(self.num_epoch):
-            for problem in self.problems:
-                if counter > self.num_train:
-                    break
-                counter += 1
-
-                temp_features = []
-
-                model = Model("setcover")
-                ourNodeSel = LinNodesel(model, self.policy, dataset=temp_features)
-                model.readProblem(problem)
-                try:
-                    model.optimize()
-                except:
-                    continue
-
-                self.listNNodes.append(model.getNNodes())
-                print(self.listNNodes)
-                optimal_node = None
-                # ourNodeSel.tree.show(data_property="variables")
-                for node in ourNodeSel.tree.leaves():
-                    if checkIsOptimal(node, model, ourNodeSel.tree):
-                        optimal_node = node
-                        print("FOUND OPTIMal")
-
-
-                if optimal_node is None:
-                    continue
-
-                optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
-
-                for idToFeature in temp_features:
-                    ids = idToFeature.keys()
-                    for id in ids:
-                        if id in optimal_ids:
-                            for otherid in ids:
-                                if id == otherid:
-                                    continue
-                                self.sfeature_list.append(idToFeature[id] - idToFeature[otherid])
-                                self.soracle.append(torch.tensor([1], dtype=torch.float32));
-                                self.sfeature_list.append(idToFeature[otherid] - idToFeature[id])
-                                self.soracle.append(torch.tensor([-1], dtype=torch.float32));
-
-                samples = list(zip(self.sfeature_list, self.soracle))[-1500:]
-
-                # print(optimal_ids)
-                s_loader = DataLoader(samples, batch_size=1, shuffle=True)
-                for epoch in range(3):
-                    running_loss = 0.0
-                    for i, (feature, label) in enumerate(s_loader):
-                        self.optimizer.zero_grad()
-                        output= self.policy(feature)
-                        loss = self.loss(output, label)
-                        loss.backward()
-                        self.optimizer.step()
-                        running_loss += loss.item()
-                    print('[%d] loss: %.3f' %
-                          (epoch + 1, running_loss/len(s_loader)))
-                    running_loss = 0.0
-
-                if os.path.exists("/Users/etashguha/Documents/TreeBNB/shallowlstmFeature.pt"):
-                    os.remove("/Users/etashguha/Documents/TreeBNB/shallowlstmFeature.pt")
-                torch.save(self.policy.state_dict(), "/Users/etashguha/Documents/TreeBnB/shallowlstmFeature.pt")
-
-    def test(self, problems):
-        with torch.no_grad():
-            real_problems = glob.glob(problems + "/*.lp")
-            num_nodes = []
-            default = []
-            for problem in real_problems:
-                print(problem)
-                model = Model("setcover")
-                ourNodeSel = MyNodesel(model, self.policy)
-                model.readProblem(problem)
-                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
-                model.optimize()
-                num_nodes.append(model.getNNodes())
-            for problem in real_problems:
-                print(problem)
-                model = Model("setcover")
-                model.readProblem(problem)
-                model.optimize()
-                default.append(model.getNNodes())
-        return num_nodes, default
+        super().test(self, problems, self.nodesel)

@@ -112,7 +112,7 @@ class MyNodesel(Nodesel):
 
 
 class LinNodesel(Nodesel):
-    def __init__(self, model, policy, dataset):
+    def __init__(self, model, policy, dataset=None):
         self.policy = policy
         self.model = model
         self.dataset = dataset
@@ -133,7 +133,6 @@ class LinNodesel(Nodesel):
                 optimalNode = listOfNodes[i]
 
         curr_node = self.model.getCurrentNode()
-
         if curr_node != None :
             number = curr_node.getNumber()
             if self.tree.size() == 0 or curr_node.getParentBranchings() == None or curr_node.getNumber() == 1:
@@ -154,8 +153,8 @@ class LinNodesel(Nodesel):
         idToFeature = {}
         for node in listOfNodes:
             idToFeature[node.getNumber()] = getNodeFeature(node, self.model)
-
-        self.dataset.append(idToFeature)
+        if self.dataset is not None:
+            self.dataset.append(idToFeature)
 
         return {"selnode": optimalNode }
 
