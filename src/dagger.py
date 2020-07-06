@@ -233,8 +233,6 @@ class TreeDagger(Dagger):
                         if queue_contains_optimal:
                             self.debug.append((optimal_id, step_ids))
                             oracle_val = (step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0]
-                            oracle_val = oracle_val.to(device=self.device)
-                            print(oracle_val.device)
                             self.soracle.append(oracle_val)
                             self.sfeature_list.append(temp_features[i])
 
@@ -267,7 +265,7 @@ class TreeDagger(Dagger):
                                 number_right += 1
                             output = output.unsqueeze(0)
                             label = label.unsqueeze(0)
-                            loss = self.loss(output, label)
+                            loss = self.loss(output, label.to(device=self.device))
                             if total_loss == None:
                                 total_loss = loss
                             else:
