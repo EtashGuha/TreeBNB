@@ -232,8 +232,9 @@ class TreeDagger(Dagger):
                                 break
                         if queue_contains_optimal:
                             self.debug.append((optimal_id, step_ids))
-                            self.soracle.append((step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0])
-                            self.sfeature_list.append(torch.Tensor(temp_features[i]).to(device=self.device))
+                            oracle_val = (step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0]
+                            self.soracle.append(oracle_val.to(device=self.device))
+                            self.sfeature_list.append(temp_features[i])
 
                 samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1500:]
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
