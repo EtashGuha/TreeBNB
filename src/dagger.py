@@ -65,7 +65,8 @@ def size_splits(tensor, split_sizes, dim=0):
                  for start, length in zip(splits, split_sizes))
 
 class Dagger():
-    def __init__(self, selector, problem_dir, device, loss, num_train=None, num_epoch = 1, batch_size=5, save_path=None):
+    def __init__(self, selector, problem_dir, device, loss, num_train=None, num_epoch = 3, num_repeat=1, batch_size=5, save_path=None):
+        print(num_repeat)
         self.policy = selector
         self.save_path = save_path
         self.problems = glob.glob(problem_dir + "/*.lp")
@@ -85,6 +86,7 @@ class Dagger():
         self.listNNodes = []
         self.debug = []
         self.batch_size = batch_size
+        self.num_repeat = num_repeat
 
     def test(self, problems, MyNodesel):
         with torch.no_grad():
@@ -108,14 +110,14 @@ class Dagger():
         return num_nodes, default
 
 class RankDagger(Dagger):
-    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch=1, time_limit=200, save_path=None):
-        super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train=num_train, num_epoch=num_epoch, save_path=save_path)
+    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch=1, time_limit=200, save_path=None, num_repeat=1):
+        super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train=num_train, num_epoch=num_epoch, save_path=save_path, num_repeat=num_repeat)
         self.nodesel = LinNodesel
         self.time_limit = time_limit
     def train(self):
         self.policy.train()
         counter = 0
-        for epoch in range(self.num_epoch):
+        for epoch in range(self.num_repeat):
             for problem in self.problems:
                 if counter > self.num_train:
                     break
@@ -162,9 +164,8 @@ class RankDagger(Dagger):
 
                 samples = list(zip(self.sfeature_list, self.soracle))[-1500:]
 
-                # print(optimal_ids)
                 s_loader = DataLoader(samples, batch_size=1, shuffle=True)
-                for epoch in range(3):
+                for epoch in range(self.num_epoch):
                     running_loss = 0.0
                     for i, (feature, label) in enumerate(s_loader):
                         self.optimizer.zero_grad()
@@ -184,14 +185,15 @@ class RankDagger(Dagger):
         super().test(self, problems, self.nodesel)
 
 class TreeDagger(Dagger):
-    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5, save_path=None):
+    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
+        print(num_repeat)
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path)
         self.nodesel = MyNodesel
-
+        self.num_repeat = num_repeat
     def train(self):
         self.policy.train()
         counter = 0
-        for epoch in range(self.num_epoch):
+        for epoch in range(self.num_repeat):
             for problem in self.problems:
                 if counter > self.num_train:
                     break
@@ -229,7 +231,6 @@ class TreeDagger(Dagger):
                                 optimal_id = id
                                 break
                         if queue_contains_optimal:
-
                             self.debug.append((optimal_id, step_ids))
                             self.soracle.append((step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0])
                             self.sfeature_list.append(temp_features[i])
@@ -237,7 +238,7 @@ class TreeDagger(Dagger):
                 samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1500:]
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
                 print('Number of datapoints: %d' % (len(samples)))
-                for epoch in range(4):
+                for epoch in range(self.num_epoch):
                     running_loss = 0.0
                     number_right = 0
 

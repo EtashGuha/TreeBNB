@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 
 class MyNodesel(Nodesel):
-    def __init__(self, model, policy, dataset=None,  step_ids=None):
+    def __init__(self, model, policy, dataset=None, step_ids=None):
         self.model = model
         self.policy = policy
         self.tree = Tree()
