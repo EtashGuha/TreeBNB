@@ -19,10 +19,10 @@ epochs = 10
 lstmFeature = TreeLSTM(x_size,
                        h_size,
                        dropout,
-                       device=torch.device("cpu"))
+                       device=torch.device("cuda:0"))
 
-if os.path.exists("/Users/etashguha/Documents/TreeBnB/lstmFeature.pt"):
-    lstmFeature.load_state_dict(torch.load("/Users/etashguha/Documents/TreeBnB/lstmFeature.pt"))
+if os.path.exists("../lstmFeature.pt"):
+    lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
-my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", torch.device("cuda:0"), num_train = 1000, num_epoch=4, save_path="/Users/etashguha/Documents/TreeBnB/lstmFeature.pt")
+my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", torch.device("cuda:0"), num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
 my_dagger.train()
