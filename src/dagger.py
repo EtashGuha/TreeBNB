@@ -190,6 +190,7 @@ class TreeDagger(Dagger):
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path)
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
+        self.time_limit = 600
     def train(self):
         self.policy.train()
         counter = 0
@@ -205,6 +206,7 @@ class TreeDagger(Dagger):
                 step_ids = []
                 ourNodeSel = self.nodesel(model, self.policy, dataset=temp_features, step_ids=step_ids)
                 model.readProblem(problem)
+                model.setRealParam('limits/time', self.time_limit)
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
                 model.optimize()
 
