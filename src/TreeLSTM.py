@@ -19,7 +19,7 @@ class TreeLSTMCell(nn.Module):
         self.W_iou = nn.Linear(x_size, 3 * h_size, bias=False)
         self.U_iou = nn.Linear(h_size, 3 * h_size, bias=False)
         self.b_iou = nn.Parameter(torch.zeros(1, 3 * h_size))
-        self.W_f = nn.Linear(h_size, h_size)
+        self.W_f = nn.Linear(x_size, h_size)
         self.b_f = nn.Parameter(torch.zeros(1, h_size))
         self.U_f = nn.Linear(h_size, h_size)
 
@@ -57,7 +57,12 @@ class TreeLSTM(nn.Module):
         self.x_size = x_size
         self.dropout = nn.Dropout(dropout)
         self.cell = TreeLSTMCell(x_size, h_size)
-        self.linear = nn.Linear(h_size, 1)
+        self.linear = nn.Sequential(
+            nn.Linear(h_size, 2 * h_size),
+            nn.Linear(2 * h_size, h_size),
+            nn.Linear(h_size, 1)
+        )
+        # self.linear = nn.Linear(h_size, 1)
         self.smax = nn.Softmax(dim=0)
         self.device = device
 

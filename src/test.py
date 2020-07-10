@@ -26,6 +26,5 @@ lstmFeature.cell.to(device)
 #     lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
 my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-my_dagger.train()
+tree_vals, def_vals = my_dagger.test("../data/instances/setcover/test_200r_400c_0.1d_0mc_10se")
 
-print(my_dagger.listNNodes)

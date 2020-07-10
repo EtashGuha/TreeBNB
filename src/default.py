@@ -3,7 +3,5 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
 
 problem = "../realsingle/instance_9.lp"
 model = Model("setcover")
-model.setIntParam('separating/maxroundsroot', 0)
-model.setBoolParam('conflict/enable', False)
 model.readProblem(problem)
-model.optimize()
+model.solveConcurrent()
