@@ -182,7 +182,7 @@ class RankDagger(Dagger):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
     def test(self, problems):
-        super().test(self, problems, self.nodesel)
+        super().test(problems, self.nodesel)
 
 class TreeDagger(Dagger):
     def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
@@ -287,4 +287,4 @@ class TreeDagger(Dagger):
 
 
     def test(self, problems):
-        super().test(self, problems, self.nodesel)
+        super().test(problems, self.nodesel)
