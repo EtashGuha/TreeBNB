@@ -122,6 +122,7 @@ class LinNodesel(Nodesel):
 
     def nodeselect(self):
         listOfNodes = list(itertools.chain.from_iterable(self.model.getOpenNodes()))
+
         if len(listOfNodes) == 0:
             return {"selnode": None}
         optimalNode = listOfNodes[0]

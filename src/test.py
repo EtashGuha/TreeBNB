@@ -32,3 +32,5 @@ with open('answer.pkl', 'wb') as f:
     pickle.dump([tree_vals, def_vals], f)
 print(tree_vals)
 print(def_vals)
+
+#How many nodes to get last primal bound change

@@ -98,7 +98,7 @@ class Dagger():
                 model = Model("setcover")
                 ourNodeSel = MyNodesel(model, self.policy)
                 model.readProblem(problem)
-                model.setRealParam('limits/time', self.time_limit)
+                # model.setRealParam('limits/time', self.time_limit)
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
                 model.optimize()
                 num_nodes.append(model.getNNodes())
