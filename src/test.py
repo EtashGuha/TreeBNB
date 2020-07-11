@@ -23,8 +23,8 @@ lstmFeature = TreeLSTM(x_size,
                        device=device)
 lstmFeature.to(device)
 lstmFeature.cell.to(device)
-# if os.path.exists("../lstmFeature.pt"):
-#     lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
+if os.path.exists("../lstmFeature.pt"):
+    lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
 my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
 tree_vals, def_vals = my_dagger.test("../data/instances/setcover/test_200r_400c_0.1d_0mc_10se")
@@ -34,3 +34,5 @@ print(tree_vals)
 print(def_vals)
 
 #How many nodes to get last primal bound change
+#Why is the feature shallow very unstable?
+#How to use to create a structure  by thhe relationship of variables

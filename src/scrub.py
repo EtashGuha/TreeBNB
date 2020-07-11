@@ -45,8 +45,5 @@ print(gmean(gpudef))
 # print(np.mean(differencesLin))
 # print(np.mean(differencesShal))
 
-#See on different types of problems
-#computation cost is very high
-#can tree structure work for other models like branching?
-
-#
+#Classification
+#Look into continuous action space or varying size action space bandit
