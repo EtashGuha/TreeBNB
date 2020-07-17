@@ -14,7 +14,7 @@ import faulthandler
 faulthandler.enable()
 import matplotlib.pyplot as plt
 
-
+import copy
 
 
 
@@ -29,6 +29,7 @@ class MyNodesel(Nodesel):
         self.cou = 1
         self.probs = None
         self.ids = None
+        self.nodeToBounds = {}
 
     def calcLSTMFeatures(self, g):
         h_size = 14
@@ -49,13 +50,21 @@ class MyNodesel(Nodesel):
             if self.tree.size() == 0 or curr_node.getParent() == None:
                 self.tree = Tree()
                 self.tree.create_node(number, number, data=nodeData(curr_node, self.model.getLPObjVal(), self.model))
+                self.nodeToBounds[curr_node] = ([], [], [])
             else:
                 variables, branch_bounds, bound_types = curr_node.getParentBranchings()
                 parent_node = curr_node.getParent()
                 parent_num = parent_node.getNumber()
+                parent_variables, parent_bb, parent_bt = self.nodeToBounds[parent_node]
+                curr_variables = list(parent_variables) + variables
+                curr_bb = list(parent_bb) + branch_bounds
+                curr_bt = list(parent_bt) + bound_types
+                self.nodeToBounds[curr_node] = (curr_variables, curr_bb, curr_bt)
+
                 try:
                     self.tree.create_node(number, number, parent=parent_num,
-                                          data=nodeData(curr_node, self.model.getLPObjVal(), self.model, variables=variables,
+                                          data=nodeData(curr_node, self.model.getLPObjVal(), self.model,
+                                                        variables=variables,
                                                         bound_types=bound_types, branch_bounds=branch_bounds))
                 except:
                     pass
@@ -64,6 +73,7 @@ class MyNodesel(Nodesel):
             g = _build_tree(self.tree, self.model)
         else:
             g = nx.DiGraph()
+
 
         self.id_to_node = dict()
         for node in listOfNodes:

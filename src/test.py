@@ -33,6 +33,12 @@ with open('answer.pkl', 'wb') as f:
 print(tree_vals)
 print(def_vals)
 
-#How many nodes to get last primal bound change
-#Why is the feature shallow very unstable?
-#How to use to create a structure  by thhe relationship of variables
+# How many nodes to get last primal bound change
+# Why is the feature shallow very unstable?
+# How to use to create a structure  by thhe relationship of variables
+# aggrregate upper bound and lower bound of each variable: use variable bounds as a feature of the nodes
+# Once two nodes have the same variable bounds, create an edge between the nodes?
+# use vector indicating variable bounds
+# aggreaget variable bounds along tree structure
+# try with more datapoints to reduce overfitting of shallow
+# try to fix the SCIP's branching policy

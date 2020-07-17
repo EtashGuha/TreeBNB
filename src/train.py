@@ -22,8 +22,6 @@ lstmFeature = TreeLSTM(x_size,
                        device=device)
 lstmFeature.to(device)
 lstmFeature.cell.to(device)
-# if os.path.exists("../lstmFeature.pt"):
-#     lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
 my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
 my_dagger.train()
