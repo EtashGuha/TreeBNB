@@ -1,10 +1,11 @@
 import torch
 import networkx as nx
 import faulthandler
+import numpy as np
 faulthandler.enable()
 
 class nodeData():
-    def __init__(self, node, val, model, variables=None, branch_bounds=None, bound_types=None, variable_chosen=None, scaled_improvement_up=None, scaled_improvement_down=None):
+    def __init__(self, node, val, model, variables=None, branch_bounds=None, bound_types=None, variable_chosen=None, lp_obj_val=None, scaled_improvement_up=1, scaled_improvement_down=1):
         self.node = node
         self.feature = getNodeFeature(node, model)
         self.nodeid = node.getNumber()
@@ -15,6 +16,13 @@ class nodeData():
         self.variable_chosen=variable_chosen
         self.scaled_improvement_up = scaled_improvement_up
         self.scaled_improvement_down = scaled_improvement_down
+        self.lp_obj_val = lp_obj_val
+    def calc_up_improvements(self, upObj, variable):
+        self.scaled_improvement_up = (upObj - self.lp_obj_val)/(int(np.ceil(variable.getLPSol())) - variable.getLPSol())
+    def calc_down_improvements(self, downObj, variable):
+        self.scaled_improvement_down = (downObj - self.lp_obj_val) / (
+                    int(np.ceil(variable.getLPSol())) - variable.getLPSol())
+
 
 def checkIsOptimal(node, model, tree):
     if tree.parent(node.tag) is not None and not checkIsOptimal(tree.parent(node.tag), model, tree):
@@ -48,7 +56,6 @@ def getNodeFeature(node, model):
              model.getDualbound(), node.getNDomchg()[0], node.getNDomchg()[1], node.getNDomchg()[2],
              node.getNAddedConss(),
              node.isActive(), node.isPropagatedAgain(), model.getGap(), 0])
-
     return toReturn
     #Shallow Neural Network
 # %%

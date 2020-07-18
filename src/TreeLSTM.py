@@ -208,5 +208,4 @@ class TreeLSTMBranch(nn.Module):
                 best_var = branch_cands[0][i]
                 max_score = score
 
-        print(max_score)
         return best_var, scores

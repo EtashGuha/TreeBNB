@@ -3,7 +3,7 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
 from brancher import TreeBranch
 import torch
 from TreeLSTM import TreeLSTMBranch
-
+from nodeutil import checkIsOptimal
 # hyper parameters
 x_size = 14
 h_size = 14
@@ -25,3 +25,13 @@ myBranch = TreeBranch(model, lstmFeature)
 model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
                                     priority=99999, maxdepth=-1, maxbounddist=1)
 model.optimize()
+
+print(myBranch.tree)
+
+if len(myBranch.tree.all_nodes()) < 2:
+    # continue
+    print("nah")
+for node in myBranch.tree.leaves():
+    if checkIsOptimal(node, model, myBranch.tree):
+        optimal_node = node
+        break
