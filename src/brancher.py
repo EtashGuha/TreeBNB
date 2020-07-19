@@ -11,6 +11,7 @@ import faulthandler
 faulthandler.enable()
 import matplotlib.pyplot as plt
 import torch
+
 class TreeBranch(Branchrule):
     def __init__(self, model, policy, dataset=None, mu = .5):
         self.model = model
@@ -38,15 +39,18 @@ class TreeBranch(Branchrule):
         nbranch_cand = len(branch_cands[0])
         branch_index = random.randint(0, nbranch_cand - 1)
         curr_node = self.model.getCurrentNode()
-
+        self.model.executeBranchRule('vanillafullstrong', allowaddcons)
+        cands_, scores, npriocands, label, result = self.model.getVanillafullstrongData()
+        print(label)
         if self.tree.size() != 0:
             g = _build_tree(self.tree, self.model)
             dgltree = dgl.DGLGraph()
             dgltree.from_networkx(g, node_attrs=["feature", "node_id", "in_queue", "variable_chosen",
                                                  "scaled_improvement_down", "scaled_improvement_up"])
-            best_var, scores = self.calcLSTMFeatures(dgltree)
+            best_var, tree_scores = self.calcLSTMFeatures(dgltree)
+            print(len(tree_scores))
 
-            self.dataset.append((dgltree, branch_cands, curr_node.getNumber(), ))
+            # self.dataset.append((dgltree, branch_cands, curr_node.getNumber(), ))
             self.branching(best_var)
         else:
             branch_index = random.randint(0, nbranch_cand - 1)

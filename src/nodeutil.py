@@ -3,6 +3,7 @@ import networkx as nx
 import faulthandler
 import numpy as np
 faulthandler.enable()
+from treelib import Tree, Node
 
 class nodeData():
     def __init__(self, node, val, model, variables=None, branch_bounds=None, bound_types=None, variable_chosen=None, lp_obj_val=None, scaled_improvement_up=1, scaled_improvement_down=1):
@@ -68,6 +69,22 @@ def getListOptimalID(initial_id, tree):
         curr_id = curr_node.tag
         optimal_nodes.add(curr_id)
     return optimal_nodes
+
+
+def setRoot(tree, nid):
+    queue = list(tree.rsearch(nid))
+    queue.reverse()
+    if len(queue) == 1:
+        return
+    queue = queue[1:]
+    for id in queue:
+        curr_node = tree.get_node(id)
+        parent = tree.get_node(curr_node.predecessor(tree.identifier))
+        curr_node.update_successors(parent.identifier, mode=Node.ADD, tree_id=tree.identifier)
+        parent.update_successors(id, mode=Node.DELETE, tree_id=tree.identifier)
+        curr_node.set_predecessor(tree.identifier, None)
+        parent.set_predecessor(tree.identifier, id)
+        tree.root = id
 
 def _build_tree(tree, model):
     root = tree.get_node(tree.root)

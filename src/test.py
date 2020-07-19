@@ -42,3 +42,10 @@ print(def_vals)
 # aggreaget variable bounds along tree structure
 # try with more datapoints to reduce overfitting of shallow
 # try to fix the SCIP's branching policy
+
+
+
+#Use oracle from wenbo's code
+#Talk to haoran about tree flipping maybe
+#Conflict score, inferrence score
+#pseudoscore
