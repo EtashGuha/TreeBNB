@@ -193,11 +193,13 @@ class TreeLSTMBranch(nn.Module):
         max_score = -1 * math.inf
         best_var = None
         scores = torch.tensor([], dtype=torch.float)
+        cands_index = [x.getIndex() for x in branch_cands[0]]
+        print(any(check in cands_index for check in vars))
         for i in range(len(branch_cands[0])):
             var = branch_cands[0][i].getIndex()
             history = (vars == var).type(torch.float)
             if len(history.nonzero()) == 0:
-                score = torch.tensor([0], dtype=torch.float)
+                score = torch.tensor([0], dtype=torch.float, requires_grad=True)
             else:
                 pseudodown = torch.dot(history,down_scores)/torch.sum(history)
                 pseudoup = torch.dot(history,up_scores)/torch.sum(history)

@@ -26,12 +26,3 @@ model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on var
                                     priority=99999, maxdepth=-1, maxbounddist=1)
 model.optimize()
 
-print(myBranch.tree)
-
-if len(myBranch.tree.all_nodes()) < 2:
-    # continue
-    print("nah")
-for node in myBranch.tree.leaves():
-    if checkIsOptimal(node, model, myBranch.tree):
-        optimal_node = node
-        break

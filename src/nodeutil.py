@@ -6,7 +6,7 @@ faulthandler.enable()
 from treelib import Tree, Node
 
 class nodeData():
-    def __init__(self, node, val, model, variables=None, branch_bounds=None, bound_types=None, variable_chosen=None, lp_obj_val=None, scaled_improvement_up=1, scaled_improvement_down=1):
+    def __init__(self, node, val, model, variables=None, branch_bounds=None, bound_types=None, variable_chosen=-1, lp_obj_val=None, scaled_improvement_up=1, scaled_improvement_down=1):
         self.node = node
         self.feature = getNodeFeature(node, model)
         self.nodeid = node.getNumber()
@@ -82,8 +82,8 @@ def setRoot(tree, nid):
         parent = tree.get_node(curr_node.predecessor(tree.identifier))
         curr_node.update_successors(parent.identifier, mode=Node.ADD, tree_id=tree.identifier)
         parent.update_successors(id, mode=Node.DELETE, tree_id=tree.identifier)
-        curr_node.set_predecessor(tree.identifier, None)
-        parent.set_predecessor(tree.identifier, id)
+        curr_node.set_predecessor(None, tree.identifier)
+        parent.set_predecessor(id, tree.identifier)
         tree.root = id
 
 def _build_tree(tree, model):
