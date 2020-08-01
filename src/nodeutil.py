@@ -22,7 +22,7 @@ class nodeData():
         self.scaled_improvement_up = (upObj - self.lp_obj_val)/(int(np.ceil(variable.getLPSol())) - variable.getLPSol())
     def calc_down_improvements(self, downObj, variable):
         self.scaled_improvement_down = (downObj - self.lp_obj_val) / (
-                    int(np.ceil(variable.getLPSol())) - variable.getLPSol())
+                    variable.getLPSol() - int(np.floor(variable.getLPSol())))
 
 
 def checkIsOptimal(node, model, tree):

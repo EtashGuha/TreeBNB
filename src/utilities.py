@@ -1,5 +1,56 @@
 from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
     Branchrule
+import torch
+import numpy as np
+
+def probing_features_extraction(model, idx, branch_cand, rounding_direction):
+    """ get probing features """
+    if rounding_direction == 'up':
+        rounding = np.ceil
+    elif rounding_direction == 'down':
+        rounding = np.floor
+    else:
+        raise Exception(f'Expect rounding direction up or down but get {rounding_direction}')
+    lp_objval = model.getLPObjVal()
+    assert not model.inRepropagation()
+    assert not model.inProbing()
+    model.startProbing()
+    model.fixVarProbing(branch_cand[0][idx], int(rounding(branch_cand[1][idx])))
+    model.constructLP()
+    model.solveProbingLP()
+    score = max(model.getLPObjVal(), lp_objval)
+    gain = score - lp_objval
+    sol = get_solution(model)
+    var_UB, var_LB = get_bound(model)
+    model.endProbing()
+    return gain, score, sol, var_UB, var_LB
+
+def sorted_cols_list(model):
+    cols = model.getLPColsData()
+    return cols
+    if model.data[4] == 'lp':
+        return cols
+    elif model.data[4] == 'mps':
+        cols_list = [cols[i + 1] for i in range(0, len(cols) - 2)]
+        cols_list.append(cols[0])
+        cols_list.append(cols[-1])
+        return cols_list
+    else:
+        raise Exception('invalid file format')
+
+def get_solution(model):
+    cols_list = sorted_cols_list(model)
+    # test_lp(model)
+    # print([col.getPrimsol() for col in cols_list])
+    return torch.tensor([col.getPrimsol() for col in cols_list]).view(-1, 1)
+
+
+def get_bound(model):
+    cols_list = sorted_cols_list(model)
+    l = torch.tensor([cols_list[i].getLb() for i in range(len(cols_list))]).view(-1, 1)
+    u = torch.tensor([cols_list[i].getUb() for i in range(len(cols_list))]).view(-1, 1)
+    return u, l
+
 
 def init_scip_params(model, seed, heuristics=True, presolving=True,
                      separating_root=True, conflict=True, propagation=True, separating=True):

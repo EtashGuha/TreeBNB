@@ -153,7 +153,7 @@ class TreeLSTMBranch(nn.Module):
         self.smax = nn.Softmax(dim=0)
         self.device = device
         self.mu = .5
-    def forward(self, g, h, c, iou, branch_cands):
+    def forward(self, g, h, c, iou, branch_cands, gains):
         """Compute tree-lstm prediction given a batch.
 
         Parameters
@@ -193,21 +193,24 @@ class TreeLSTMBranch(nn.Module):
         max_score = -1 * math.inf
         best_var = None
         scores = torch.tensor([], dtype=torch.float)
-        cands_index = [x.getIndex() for x in branch_cands[0]]
-        print(any(check in cands_index for check in vars))
-        for i in range(len(branch_cands[0])):
-            var = branch_cands[0][i].getIndex()
+        for i in range(len(branch_cands)):
+            var = branch_cands[i]
             history = (vars == var).type(torch.float)
             if len(history.nonzero()) == 0:
-                score = torch.tensor([0], dtype=torch.float, requires_grad=True)
+                pseudodown = gains[i][0]
+                pseudoup = gains[i][1]
+                score_val = (1 - self.mu) * min(pseudodown, pseudodown) + self.mu * max(pseudodown, pseudoup)
+
+                score = torch.tensor([score_val], dtype=torch.float, requires_grad=True)
             else:
+                print("calculating")
                 pseudodown = torch.dot(history,down_scores)/torch.sum(history)
                 pseudoup = torch.dot(history,up_scores)/torch.sum(history)
                 score = (1 - self.mu) * min(pseudodown, pseudodown) + self.mu * max(pseudodown, pseudoup)
                 score = score.unsqueeze(dim=0)
             scores = torch.cat((scores, score), dim = 0)
             if score > max_score:
-                best_var = branch_cands[0][i]
+                best_var = i
                 max_score = score
 
-        return best_var, scores
+        return best_var, scores, down_scores, up_scores, vars

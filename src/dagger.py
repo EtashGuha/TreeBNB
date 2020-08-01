@@ -28,6 +28,10 @@ from nodeutil import getListOptimalID, checkIsOptimal
 from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
     Branchrule, Nodesel
 import glob
+from TreeLSTM import TreeLSTMBranch
+from utilities import init_scip_params
+from brancher import TreeBranch
+
 import os
 faulthandler.enable()
 torch.set_printoptions(precision=10)
@@ -78,7 +82,7 @@ class Dagger():
         self.sfeature_list = []
         self.soracle = []
         self.loss = loss
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=1e-3)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr= 1e-3)
         self.device = device
         self.prev = None
         self.num_epoch = num_epoch
@@ -290,3 +294,82 @@ class TreeDagger(Dagger):
 
     def test(self, problems):
         return super().test(problems, self.nodesel)
+
+
+class branchDagger(Dagger):
+    def __init__(self, selector, problem_dir, device, time_limit=1500, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
+        super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train, num_epoch, batch_size, save_path=save_path)
+        self.time_limit = time_limit
+
+    def train(self):
+        dataset = []
+        for epoch in range(self.num_repeat):
+            for problem in self.problems:
+                print(problem)
+                model = Model("setcover")
+                model.readProblem(problem)
+                model.setRealParam('limits/time', self.time_limit)
+                myBranch = TreeBranch(model, self.policy, dataset = dataset, train=True)
+                init_scip_params(model, 100, False, False, False, False, False, False)
+
+                model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
+                model.setBoolParam('branching/vanillafullstrong/idempotent', True)
+                model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
+                                        priority=99999, maxdepth=-1, maxbounddist=1)
+                model.optimize()
+                for epoch in range(self.num_epoch):
+                    running_loss = 0.0
+                    number_right = 0
+                    print(len(dataset))
+                    for (dgltree, branch_cand, default_gains, label_index, label) in dataset:
+                        self.optimizer.zero_grad()
+
+                        h_size = 14
+                        n = dgltree.number_of_nodes()
+                        h = torch.zeros((n, h_size))
+                        c = torch.zeros((n, h_size))
+                        iou = torch.zeros((n, 3 * h_size))
+
+                        best_var, tree_scores, down_scores, up_scores, vars = self.policy(dgltree, h, c, iou, branch_cand, default_gains)
+                        best_values = torch.tensor([1 if label_index == var else 0 for var in vars], dtype=torch.float)
+
+                        best_in = np.argmax(tree_scores.detach().numpy())
+                        if label == best_in:
+                            number_right += 1
+
+
+                        tree_scores = tree_scores.unsqueeze(0)
+
+
+                        loss = self.loss(down_scores, best_values)
+
+                        loss.backward()
+
+                        self.optimizer.step()
+
+                        running_loss += loss.item()
+
+                    print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
+                          (epoch + 1, running_loss / len(dataset), number_right / len(dataset), number_right))
+
+                #
+                # if self.train and not pre_calculated:
+                #     best_in = np.argmax(tree_scores.detach().numpy())
+                #     if label == best_in:
+                #         self.num_right += 1
+                #     self.optimizer.zero_grad()
+                #     tree_scores = tree_scores.unsqueeze(0)
+                #     label = torch.tensor(label).unsqueeze(0)
+                #     loss = self.loss(tree_scores, label)
+                #
+                #     self.total_loss *= self.num_example
+                #     self.total_loss += loss.item()
+                #     self.num_example += 1
+                #     self.total_loss = self.total_loss / self.num_example
+                #     loss.backward()
+                #     self.optimizer.step()
+                #
+                # if self.train:
+                #     if os.path.exists(self.save_path):
+                #         os.remove(self.save_path)
+                #     torch.save(self.policy.state_dict(), self.save_path)
