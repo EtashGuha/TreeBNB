@@ -11,7 +11,7 @@ import torch
 from TreeLSTM import TreeLSTMBranch
 from utilities import init_scip_params
 from dagger import branchDagger
-device = torch.device('cpu')
+device = torch.device('cuda:0')
 import glob
 # hyper parameters
 x_size = 14
