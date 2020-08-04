@@ -36,6 +36,7 @@ class TreeBranch(Branchrule):
         self.num_right = 0
         self.default_gains = None
         self.train = train
+        self.counter = 0
     def branchinit(self):
         self.root_buffer = {}
 
@@ -50,12 +51,14 @@ class TreeBranch(Branchrule):
     def branchexeclp(self, allowaddcons):
 
         assert allowaddcons
+        self.counter += 1
         branch_cands = self.model.getLPBranchCands()
         self.cand_indeces = [cand.getIndex() for cand in branch_cands[0]]
         nbranch_cand = len(branch_cands[0])
+        print(nbranch_cand)
         curr_node = self.model.getCurrentNode()
         pre_calculated = False
-        if self.default_gains is None:
+        if self.counter == 1 :
             best_var, self.default_gains = self.getFullStrong()
             pre_calculated = True
 
@@ -202,8 +205,8 @@ class TreeBranch(Branchrule):
             down_var_LBs = torch.cat((down_var_LBs, down_var_LB), 1)
             down_var_UBs = torch.cat((down_var_UBs, down_var_UB), 1)
             branch_scores.append(branch_score)
+        return best_cand, total_gains, [self.branch_cand[0][var].getIndex() for var in range(self.nprio_lpcands) ]
 
-        return best_cand, total_gains
 
     def branching(self, variable):
         down, eq, up = self.model.branchVarVal(variable, variable.getLPSol())

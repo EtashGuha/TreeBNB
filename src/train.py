@@ -21,60 +21,60 @@ lr = 0.05
 weight_decay = 1000000000000
 epochs = 10
 
-# # create the model
-# lstmFeature = TreeLSTM(x_size,
-#                        h_size,
-#                        dropout,
-#                        device=device)
-# lstmFeature.to(device)
-# lstmFeature.cell.to(device)
-#
-# my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-# my_dagger.train()
-#
-# print(my_dagger.listNNodes)
-
-device= torch.device('cpu')
-
-lstmFeature = TreeLSTMBranch(x_size,
+# create the model
+lstmFeature = TreeLSTM(x_size,
                        h_size,
                        dropout,
                        device=device)
-# lstmFeature.load_state_dict(torch.load("branch_lstm.pt"))
-# problem = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_66.lp"
-# losses = []
-# listNNodes = []
-# problem_dir = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se"
-# problems = glob.glob(problem_dir + "/*.lp")
-# problems = ["../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_91.lp"]
-#
-my_dagger = branchDagger(lstmFeature, "../realsingle", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
+lstmFeature.to(device)
+lstmFeature.cell.to(device)
+
+my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/test_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
 my_dagger.train()
 
-# problem = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_66.lp"
-# losses = []
-# listNNodes = []
-# problem_dir = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se"
-# problems = glob.glob(problem_dir + "/*.lp")
-# problems = ["../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_91.lp"]
-# for problem in problems:
-#     for i in range(10):
-#         print(problem )
-#         model = Model("setcover")
-#         model.readProblem(problem)
-#         model.setRealParam('limits/time', 1500)
-#         myBranch = TreeBranch(model, lstmFeature,  train=True)
-#         init_scip_params(model, 100, False, False, False, False, False, False)
+print(my_dagger.listNNodes)
+
+# device= torch.device('cpu')
 #
-#         model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
-#         model.setBoolParam('branching/vanillafullstrong/idempotent', True)
-#         model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
-#                                             priority=99999, maxdepth=-1, maxbounddist=1)
-#         model.optimize()
-#         losses.append((myBranch.total_loss))
-#         listNNodes.append(model.getNNodes())
-#         print(listNNodes)
-#         print(losses)
-#         if myBranch.num_example == 0:
-#             continue
-#         print('accuracy %.3f' % (myBranch.num_right/myBranch.num_example))
+# lstmFeature = TreeLSTMBranch(x_size,
+#                        h_size,
+#                        dropout,
+#                        device=device)
+# # lstmFeature.load_state_dict(torch.load("branch_lstm.pt"))
+# # problem = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_66.lp"
+# # losses = []
+# # listNNodes = []
+# # problem_dir = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se"
+# # problems = glob.glob(problem_dir + "/*.lp")
+# # problems = ["../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_91.lp"]
+# #
+# my_dagger = branchDagger(lstmFeature, "../realsingle", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
+# my_dagger.train()
+#
+# # problem = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_66.lp"
+# # losses = []
+# # listNNodes = []
+# # problem_dir = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se"
+# # problems = glob.glob(problem_dir + "/*.lp")
+# # problems = ["../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_91.lp"]
+# # for problem in problems:
+# #     for i in range(10):
+# #         print(problem )
+# #         model = Model("setcover")
+# #         model.readProblem(problem)
+# #         model.setRealParam('limits/time', 1500)
+# #         myBranch = TreeBranch(model, lstmFeature,  train=True)
+# #         init_scip_params(model, 100, False, False, False, False, False, False)
+# #
+# #         model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
+# #         model.setBoolParam('branching/vanillafullstrong/idempotent', True)
+# #         model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
+# #                                             priority=99999, maxdepth=-1, maxbounddist=1)
+# #         model.optimize()
+# #         losses.append((myBranch.total_loss))
+# #         listNNodes.append(model.getNNodes())
+# #         print(listNNodes)
+# #         print(losses)
+# #         if myBranch.num_example == 0:
+# #             continue
+# #         print('accuracy %.3f' % (myBranch.num_right/myBranch.num_example))

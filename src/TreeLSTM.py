@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 faulthandler.enable()
 import math
 import numpy as np
+
 def plot_tree(g):
     # this plot requires pygraphviz package
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
@@ -100,6 +101,8 @@ class TreeLSTM(nn.Module):
         # propagate
         dgl.prop_nodes_topo(g, reverse=True)
         dgl.prop_nodes_topo(g)
+
+        #TRY BELIEF PROPOGATION
         # compute logits
         h = g.ndata['h']
         ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
@@ -187,6 +190,7 @@ class TreeLSTMBranch(nn.Module):
         dgl.prop_nodes_topo(g)
         # compute logits
         h = self.linear(g.ndata['h']).squeeze(dim=1)
+
         down_scores = h * g.ndata['scaled_improvement_down']
         up_scores = h * g.ndata["scaled_improvement_up"]
         vars = g.ndata["variable_chosen"]
@@ -200,7 +204,7 @@ class TreeLSTMBranch(nn.Module):
                 pseudodown = gains[i][0]
                 pseudoup = gains[i][1]
                 score_val = (1 - self.mu) * min(pseudodown, pseudodown) + self.mu * max(pseudodown, pseudoup)
-
+                #use shallow neural net to calc score with
                 score = torch.tensor([score_val], dtype=torch.float, requires_grad=True)
             else:
                 print("calculating")
@@ -208,6 +212,7 @@ class TreeLSTMBranch(nn.Module):
                 pseudoup = torch.dot(history,up_scores)/torch.sum(history)
                 score = (1 - self.mu) * min(pseudodown, pseudodown) + self.mu * max(pseudodown, pseudoup)
                 score = score.unsqueeze(dim=0)
+
             scores = torch.cat((scores, score), dim = 0)
             if score > max_score:
                 best_var = i

@@ -608,11 +608,11 @@ if __name__ == '__main__':
     rng = np.random.RandomState(int(args.seed))
 
     if args.problem == 'setcover':
-        nrows = 200
-        ncols = 400
+        nrows = 100
+        ncols = 200
         dens = 0.1
 
-        max_coef = 0
+        max_coef = 5
 
         filenames = []
         filenames_pkl = []
@@ -622,7 +622,7 @@ if __name__ == '__main__':
         lp_dirs = []
 
         # train instances
-        n_train= 100
+        n_train= 200
         for i in range(n_train):
             lp_dir = f'../data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
             if not os.path.exists(lp_dir):
@@ -648,7 +648,7 @@ if __name__ == '__main__':
         # denss.extend([dens] * n_valid)
         #
         # test instances
-        n_test = 20
+        n_test = 50
         for i in range(n_test):
             lp_dir = f'../data/instances/setcover/test_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
             if not os.path.exists((lp_dir)):

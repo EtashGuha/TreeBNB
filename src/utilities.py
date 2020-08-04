@@ -52,6 +52,44 @@ def get_bound(model):
     return u, l
 
 
+def init_scip_params_haoran(model, seed, heuristics=False, presolving=False,
+                     separating_root=False, conflict=False, propagation=False, separating=False):
+    seed = seed % 2147483648  # SCIP seed range
+
+    # set up randomization
+    model.setBoolParam('randomization/permutevars', True)
+    model.setIntParam('randomization/permutationseed', seed)
+    model.setIntParam('randomization/randomseedshift', seed)
+
+    # no restart
+    model.setIntParam('presolving/maxrestarts', 0)
+
+    # disable separation except the root
+    if not separating:
+        model.setIntParam('separating/maxrounds', 0)
+
+    # if asked, disable separating (cuts)
+    if not separating_root:
+        model.setIntParam('separating/maxroundsroot', 0)
+        # model.setSeparating(SCIP_PARAMSETTING.OFF)
+
+    # if asked, disable presolving
+    if not presolving:
+        model.setIntParam('presolving/maxrounds', 0)
+        model.setIntParam('presolving/maxrestarts', 0)
+        # model.setPresolve(SCIP_PARAMSETTING.OFF)
+
+    # if asked, disable conflict analysis (more cuts)
+    if not conflict:
+        model.setBoolParam('conflict/enable', False)
+
+    # if asked, disable primal heuristics
+    if not heuristics:
+        model.setHeuristics(SCIP_PARAMSETTING.OFF)
+
+    if not propagation:
+        model.disablePropagation(onlyroot=True)
+
 def init_scip_params(model, seed, heuristics=True, presolving=True,
                      separating_root=True, conflict=True, propagation=True, separating=True):
 

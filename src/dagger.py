@@ -29,7 +29,7 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
     Branchrule, Nodesel
 import glob
 from TreeLSTM import TreeLSTMBranch
-from utilities import init_scip_params
+from utilities import init_scip_params, init_scip_params_haoran
 from brancher import TreeBranch
 
 import os
@@ -211,6 +211,7 @@ class TreeDagger(Dagger):
                 model = Model("setcover")
                 step_ids = []
                 ourNodeSel = self.nodesel(model, self.policy, dataset=temp_features, step_ids=step_ids)
+                init_scip_params_haoran(model, 10)
                 model.readProblem(problem)
                 model.setRealParam('limits/time', self.time_limit)
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
@@ -309,7 +310,7 @@ class branchDagger(Dagger):
                 model = Model("setcover")
                 model.readProblem(problem)
                 model.setRealParam('limits/time', self.time_limit)
-                myBranch = TreeBranch(model, self.policy, dataset = dataset, train=True)
+                myBranch = TreeBranch(model, self.policy, dataset = dataset, train=False)
                 init_scip_params(model, 100, False, False, False, False, False, False)
 
                 model.setBoolParam("branching/vanillafullstrong/donotbranch", True)

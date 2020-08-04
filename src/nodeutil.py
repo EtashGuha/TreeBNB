@@ -86,7 +86,7 @@ def setRoot(tree, nid):
         parent.set_predecessor(id, tree.identifier)
         tree.root = id
 
-def _build_tree(tree, model):
+def _build_tree(tree, model, collect_variable_values=False):
     root = tree.get_node(tree.root)
     g = nx.DiGraph()
 
