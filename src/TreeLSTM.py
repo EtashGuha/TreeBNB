@@ -207,7 +207,6 @@ class TreeLSTMBranch(nn.Module):
                 #use shallow neural net to calc score with
                 score = torch.tensor([score_val], dtype=torch.float, requires_grad=True)
             else:
-                print("calculating")
                 pseudodown = torch.dot(history,down_scores)/torch.sum(history)
                 pseudoup = torch.dot(history,up_scores)/torch.sum(history)
                 score = (1 - self.mu) * min(pseudodown, pseudodown) + self.mu * max(pseudodown, pseudoup)

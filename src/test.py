@@ -1,7 +1,7 @@
 import torch.sparse
 import faulthandler
 from TreeLSTM import TreeLSTMCell, TreeLSTM, LinLib, ShallowLib
-from dagger import TreeDagger, RankDagger
+from dagger import TreeDagger, RankDagger, branchDagger
 import pickle
 import os
 import matplotlib.pyplot as plt
@@ -47,37 +47,39 @@ lstmFeature = TreeLSTMBranch(x_size,
                        device=device)
 lstmFeature.load_state_dict(torch.load("branch_lstm.pt"))
 
-
-problem = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_92.lp"
-model = Model("setcover")
-model.readProblem(problem)
-model.setRealParam('limits/time', 300)
-myBranch = TreeBranch(model, lstmFeature,  train=False)
-init_scip_params(model, 100, False, False, False, False, False, False)
-
-model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
-model.setBoolParam('branching/vanillafullstrong/idempotent', True)
-
-model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
-                                    priority=99999, maxdepth=-1, maxbounddist=1)
-model.optimize()
-withTree = model.getNNodes()
-
-model = Model("setcover")
-model.readProblem(problem)
-model.setRealParam('limits/time', 300)
-init_scip_params(model, 100, False, False, False, False, False, False)
-
-myBranch = TreeBranch(model, lstmFeature,  train=False)
-model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
-model.setBoolParam('branching/vanillafullstrong/idempotent', True)
-
-model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
-                                    priority=99999, maxdepth=-1, maxbounddist=1)
-model.optimize()
-withoutTree = model.getNNodes()
-print(withTree)
-print(withoutTree)
+my_dagger = branchDagger(lstmFeature, "../realsingle", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
+my_dagger.test("../realsingle")
+#
+# problem = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_92.lp"
+# model = Model("setcover")
+# model.readProblem(problem)
+# model.setRealParam('limits/time', 300)
+# myBranch = TreeBranch(model, lstmFeature,  train=False)
+# init_scip_params(model, 100, False, False, False, False, False, False)
+#
+# model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
+# model.setBoolParam('branching/vanillafullstrong/idempotent', True)
+#
+# model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
+#                                     priority=99999, maxdepth=-1, maxbounddist=1)
+# model.optimize()
+# withTree = model.getNNodes()
+#
+# model = Model("setcover")
+# model.readProblem(problem)
+# model.setRealParam('limits/time', 300)
+# init_scip_params(model, 100, False, False, False, False, False, False)
+#
+# myBranch = TreeBranch(model, lstmFeature,  train=False)
+# model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
+# model.setBoolParam('branching/vanillafullstrong/idempotent', True)
+#
+# model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
+#                                     priority=99999, maxdepth=-1, maxbounddist=1)
+# model.optimize()
+# withoutTree = model.getNNodes()
+# print(withTree)
+# print(withoutTree)
 # How many nodes to get last primal bound change
 # Why is the feature shallow very unstable?
 # How to use to create a structure  by thhe relationship of variables

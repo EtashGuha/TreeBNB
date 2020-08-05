@@ -310,7 +310,7 @@ class branchDagger(Dagger):
                 model = Model("setcover")
                 model.readProblem(problem)
                 model.setRealParam('limits/time', self.time_limit)
-                myBranch = TreeBranch(model, self.policy, dataset = dataset, train=False)
+                myBranch = TreeBranch(model, self.policy, dataset = dataset, train=True)
                 init_scip_params(model, 100, False, False, False, False, False, False)
 
                 model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
@@ -374,3 +374,31 @@ class branchDagger(Dagger):
                 #     if os.path.exists(self.save_path):
                 #         os.remove(self.save_path)
                 #     torch.save(self.policy.state_dict(), self.save_path)
+
+    def test(self, problems):
+        with torch.no_grad():
+            real_problems = glob.glob(problems + "/*.lp")
+            num_nodes = []
+            default = []
+            for problem in real_problems:
+                print(problem)
+                model = Model("setcover")
+                ourNodeSel = MyNodesel(model, self.policy)
+                model.readProblem(problem)
+                myBranch = TreeBranch(model, self.policy, train=False)
+                init_scip_params(model, 100, False, False, False, False, False, False)
+
+                model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
+                model.setBoolParam('branching/vanillafullstrong/idempotent', True)
+                model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
+                                        priority=99999, maxdepth=-1, maxbounddist=1)
+                model.optimize()
+                num_nodes.append(model.getNNodes())
+            for problem in real_problems:
+                print(problem)
+                model = Model("setcover")
+                model.setRealParam('limits/time', self.time_limit)
+                model.readProblem(problem)
+                model.optimize()
+                default.append(model.getNNodes())
+        return num_nodes, default
