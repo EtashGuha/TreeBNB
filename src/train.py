@@ -29,7 +29,7 @@ lstmFeature = TreeLSTM(x_size,
 lstmFeature.to(device)
 lstmFeature.cell.to(device)
 
-my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/test_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
+my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
 my_dagger.train()
 
 print(my_dagger.listNNodes)
