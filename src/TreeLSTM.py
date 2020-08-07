@@ -61,8 +61,6 @@ class TreeLSTM(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.cell = TreeLSTMCell(x_size, h_size)
         self.linear = nn.Sequential(
-            nn.Linear(h_size, 2 * h_size),
-            nn.Linear(2 * h_size, h_size),
             nn.Linear(h_size, 1)
         )
         # self.linear = nn.Linear(h_size, 1)
