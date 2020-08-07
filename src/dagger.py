@@ -91,6 +91,14 @@ class Dagger():
         self.debug = []
         self.batch_size = batch_size
         self.num_repeat = num_repeat
+        self.num_features = 0
+
+    def isScippable(self):
+        if self.num_features == len(self.sfeature_list):
+            return True
+        else:
+            return False
+        self.num_features = len(self.sfeature_list)
 
     def test(self, problems, MyNodesel):
         with torch.no_grad():
@@ -169,7 +177,8 @@ class RankDagger(Dagger):
                                 self.soracle.append(torch.tensor([-1], dtype=torch.float32));
 
                 samples = list(zip(self.sfeature_list, self.soracle))[-1500:]
-
+                if self.isScippable():
+                    continue
                 s_loader = DataLoader(samples, batch_size=1, shuffle=True)
                 for epoch in range(self.num_epoch):
                     running_loss = 0.0
@@ -244,8 +253,10 @@ class TreeDagger(Dagger):
                             oracle_val = (step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0]
                             self.soracle.append(oracle_val)
                             self.sfeature_list.append(temp_features[i])
-
+                if self.isScippable():
+                    continue
                 samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1500:]
+
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
                 print('Number of datapoints: %d' % (len(samples)))
                 for epoch in range(self.num_epoch):
@@ -303,14 +314,13 @@ class branchDagger(Dagger):
         self.time_limit = time_limit
 
     def train(self):
-        dataset = []
         for epoch in range(self.num_repeat):
             for problem in self.problems:
                 print(problem)
                 model = Model("setcover")
                 model.readProblem(problem)
                 model.setRealParam('limits/time', self.time_limit)
-                myBranch = TreeBranch(model, self.policy, dataset = dataset, train=True)
+                myBranch = TreeBranch(model, self.policy, dataset = self.sfeature_list, train=True)
                 init_scip_params(model, 100, False, False, False, False, False, False)
 
                 model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
@@ -318,11 +328,14 @@ class branchDagger(Dagger):
                 model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
                                         priority=99999, maxdepth=-1, maxbounddist=1)
                 model.optimize()
+
+                if self.isScippable():
+                    continue
                 for epoch in range(self.num_epoch):
                     running_loss = 0.0
                     number_right = 0
-                    print(len(dataset))
-                    for (dgltree, branch_cand, default_gains, label_index, label) in dataset:
+                    print(len(self.sfeature_list))
+                    for (dgltree, branch_cand, default_gains, label_index, label) in self.sfeature_list:
                         self.optimizer.zero_grad()
 
                         h_size = 14
@@ -332,7 +345,7 @@ class branchDagger(Dagger):
                         iou = torch.zeros((n, 3 * h_size))
 
                         best_var, tree_scores, down_scores, up_scores, vars = self.policy(dgltree, h, c, iou, branch_cand, default_gains)
-                        best_values = torch.tensor([1 if label_index == var else 0 for var in vars], dtype=torch.float)
+                        best_values = torch.tensor([100000 if label_index == var else 0 for var in vars], dtype=torch.float)
 
                         best_in = np.argmax(tree_scores.detach().numpy())
                         if label == best_in:
