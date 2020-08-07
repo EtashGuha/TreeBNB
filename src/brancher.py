@@ -111,6 +111,8 @@ class TreeBranch(Branchrule):
             best_var = 0
 
         if not pre_calculated:
+            curr_tree_node.data.conflict_score = self.model.getVarConflictScore(branch_cands[0][best_var])
+            curr_tree_node.data.inference_score = self.model.getVarAvgInferenceScore(branch_cands[0][best_var])
             curr_tree_node.data.variable_chosen = branch_cands[0][best_var].getIndex()
             if curr_node.getParent() != None:
                 parent_node = self.tree.get_node(curr_node.getParent().getNumber())
@@ -118,6 +120,7 @@ class TreeBranch(Branchrule):
                     parent_node.data.calc_down_improvements(self.model.getLPObjVal(), branch_cands[0][best_var])
                 else:
                     parent_node.data.calc_up_improvements(self.model.getLPObjVal(), branch_cands[0][best_var])
+
 
         if self.train and not pre_calculated:
             self.model.executeBranchRule('vanillafullstrong', allowaddcons)
@@ -246,6 +249,8 @@ class TreeBranch(Branchrule):
                                                     bound_types=bound_types, branch_bounds=branch_bounds,
                                                     lp_obj_val=self.model.getLPObjVal(),
                                                     variable_chosen=variable.getIndex(),
+                                                    conflict_score=self.model.getVarConflictScore(variable),
+                                                    inference_score=self.model.getVarAvgInferenceScore(variable),
                                                     scaled_improvement_down=scaled_gains[0],
                                                     scaled_improvement_up=scaled_gains[1],
                                       ))

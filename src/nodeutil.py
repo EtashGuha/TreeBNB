@@ -6,7 +6,7 @@ faulthandler.enable()
 from treelib import Tree, Node
 
 class nodeData():
-    def __init__(self, node, val, model, variables=None, branch_bounds=None, bound_types=None, variable_chosen=-1, lp_obj_val=None, scaled_improvement_up=1, scaled_improvement_down=1):
+    def __init__(self, node, val, model, conflict_score=None, inference_score = None, variables=None, branch_bounds=None, bound_types=None, variable_chosen=-1, lp_obj_val=None, scaled_improvement_up=1, scaled_improvement_down=1):
         self.node = node
         self.feature = getNodeFeature(node, model)
         self.nodeid = node.getNumber()
@@ -16,6 +16,8 @@ class nodeData():
         self.bound_types = bound_types
         self.variable_chosen=variable_chosen
         self.scaled_improvement_up = scaled_improvement_up
+        self.conflict_score = conflict_score
+        self.inference_score = inference_score
         self.scaled_improvement_down = scaled_improvement_down
         self.lp_obj_val = lp_obj_val
     def calc_up_improvements(self, upObj, variable):
