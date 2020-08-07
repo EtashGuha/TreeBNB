@@ -401,4 +401,4 @@ class branchDagger(Dagger):
                 model.readProblem(problem)
                 model.optimize()
                 default.append(model.getNNodes())
-        return num_nodes, default
+        return num_nodes, default 
