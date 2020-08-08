@@ -36,7 +36,7 @@ if mode == "tree":
 
     print(my_dagger.listNNodes)
 elif mode == "baseline":
-    lstmFeature = LinLib(x_size)
+    lstmFeature = LinLib(x_size, device)
     lstmFeature.to(device)
 
     my_dagger = RankDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device,

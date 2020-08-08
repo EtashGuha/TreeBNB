@@ -127,11 +127,12 @@ class ShallowLib(nn.Module):
         return self.fc3(x)
 
 class LinLib(nn.Module):
-    def __init__(self, in_dim):
+    def __init__(self, in_dim, device):
         super(LinLib, self).__init__()
         self.fc1 = nn.Linear(in_dim, 1)
-
+        self.device = device
     def forward(self, x):
+        x = x.to(device=self.device)
         return self.fc1(x)
 
 
