@@ -16,7 +16,8 @@ from scipy.stats import gmean
 
 
 tree = [1, 7, 1, 669, 2, 1, 1, 1, 1, 9, 11, 359, 25, 1, 32, 4, 1, 1, 17, 34, 1, 1, 5, 1, 2, 2, 1, 3, 1, 1, 2, 22, 44, 11, 1, 2, 4, 49, 1, 13, 362, 1, 1, 1, 1, 2, 1, 8, 19, 3]
-default = tree = np.array(tree)
+default = [1, 74, 1, 603, 16, 1, 1, 1, 1, 29, 74, 109, 405, 1, 57, 26, 1, 1, 26, 119, 1, 1, 14, 1, 81, 24, 1, 41, 1, 1, 5, 50, 68, 263, 1, 18, 521, 83, 1, 4, 146, 1, 1, 1, 1, 2, 1, 14, 302, 92]
+tree = np.array(tree)
 default = np.array(default)
 mask = np.logical_or(tree != 1, default != 1)
 tree_fil = tree[mask]

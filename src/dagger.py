@@ -112,6 +112,7 @@ class Dagger():
                 model.readProblem(problem)
                 # model.setRealParam('limits/time', self.time_limit)
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+                init_scip_params_haoran(model, 10)
                 model.optimize()
                 num_nodes.append(model.getNNodes())
             for problem in real_problems:
