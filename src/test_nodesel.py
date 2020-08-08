@@ -11,8 +11,7 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
 from brancher import TreeBranch
 import torch
 from utilities import init_scip_params
-device = torch.device('cpu')
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # hyper parameters
 x_size = 14
 h_size = 14
@@ -32,11 +31,11 @@ if os.path.exists("../lstmFeature.pt"):
     lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
 my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-tree_vals, def_vals = my_dagger.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
-with open('answer.pkl', 'wb') as f:
-    pickle.dump([tree_vals, def_vals], f)
-print(tree_vals)
-print(def_vals)
+my_dagger.testAccuracy("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+# with open('answer.pkl', 'wb') as f:
+#     pickle.dump([tree_vals, def_vals], f)
+# print(tree_vals)
+# print(def_vals)
 
 
 # How many nodes to get last primal bound change

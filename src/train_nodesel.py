@@ -14,7 +14,7 @@ from dagger import branchDagger
 
 
 
-device = torch.device('cuda:0')
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 x_size = 14
 h_size = 14
@@ -22,16 +22,23 @@ dropout = 0.5
 lr = 0.05
 weight_decay = 1000000000000
 epochs = 10
+mode = "baseline"
+if mode == "tree":
+    lstmFeature = TreeLSTM(x_size,
+                           h_size,
+                           dropout,
+                           device=device)
+    lstmFeature.to(device)
+    lstmFeature.cell.to(device)
 
-lstmFeature = TreeLSTM(x_size,
-                       h_size,
-                       dropout,
-                       device=device)
-lstmFeature.to(device)
-lstmFeature.cell.to(device)
+    my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
+    my_dagger.train()
 
-my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-my_dagger.train()
+    print(my_dagger.listNNodes)
+elif mode == "baseline":
+    lstmFeature = LinLib(x_size)
+    lstmFeature.to(device)
 
-print(my_dagger.listNNodes)
-
+    my_dagger = RankDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device,
+                           num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
+    my_dagger.train()
