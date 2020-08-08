@@ -31,7 +31,7 @@ if os.path.exists("../lstmFeature.pt"):
     lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
 my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-my_dagger.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+my_dagger.testAccuracy("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
 # with open('answer.pkl', 'wb') as f:
 #     pickle.dump([tree_vals, def_vals], f)
 # print(tree_vals)

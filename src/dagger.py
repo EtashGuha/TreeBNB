@@ -323,7 +323,7 @@ class TreeDagger(Dagger):
                 model = Model("setcover")
                 step_ids = []
                 ourNodeSel = self.nodesel(model, self.policy, dataset=temp_features, step_ids=step_ids)
-                init_scip_params_haoran(model, 10)
+                # init_scip_params_haoran(model, 10)
                 model.readProblem(problem)
                 model.setRealParam('limits/time', self.time_limit)
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
