@@ -186,7 +186,7 @@ class RankDagger(Dagger):
                     for i, (feature, label) in enumerate(s_loader):
                         self.optimizer.zero_grad()
                         output = self.policy(feature)
-                        loss = self.loss(output, label)
+                        loss = self.loss(output, label.to(device=self.device))
                         loss.backward()
                         self.optimizer.step()
                         running_loss += loss.item()
