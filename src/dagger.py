@@ -22,6 +22,7 @@ import copy
 import matplotlib.pyplot as plt
 import sys
 import faulthandler
+from datetime import datetime
 from TreeLSTM import TreeLSTMCell, TreeLSTM
 from NodeSel import MyNodesel, LinNodesel
 from nodeutil import getListOptimalID, checkIsOptimal
@@ -73,6 +74,7 @@ class Dagger():
         print(num_repeat)
         self.policy = selector
         self.save_path = save_path
+        self.problem_dir = problem_dir
         self.problems = glob.glob(problem_dir + "/*.lp")
         if num_train is None:
             self.num_train = len(self.problems)
@@ -124,60 +126,87 @@ class Dagger():
                 default.append(model.getNNodes())
         return num_nodes, default
 
+    def write_to_log_file(self, type, data_path, accuracy, loss):
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f \n" % (dt_string, type, self.model_name, data_path, accuracy, loss))
+        file_object = open('../log/log.txt', 'a')
+        file_object.write(log)
+        file_object.close()
+
+    def test(self, problems):
+        with torch.no_grad():
+            real_problems = glob.glob(problems + "/*.lp")
+            num_nodes = []
+            default = []
+            for problem in real_problems:
+                print(problem)
+                self.solveModel(problem, to_train=False)
+                num_nodes.append(self.model.getNNodes())
+            for problem in real_problems:
+                print(problem)
+                self.solveModel(problem, to_train=False, default=True)
+                default.append(self.model.getNNodes())
+        return num_nodes, default
+
+
 class RankDagger(Dagger):
     def __init__(self, selector, problem_dir, device, num_train=None, num_epoch=1, time_limit=200, save_path=None, num_repeat=1):
         super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train=num_train, num_epoch=num_epoch, save_path=save_path, num_repeat=num_repeat)
         self.nodesel = LinNodesel
         self.time_limit = time_limit
+        self.model_name = "RankDagger"
+    def solveModel(self,problem, train=True, default=False):
+        temp_features = []
+        self.model = Model("setcover")
+        self.model.setRealParam('limits/time', self.time_limit)
+        if not default:
+            self.ourNodeSel = self.nodesel(self.model, self.policy, dataset=temp_features)
+            self.model.includeNodesel(self.ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+        self.model.readProblem(problem)
+        self.model.optimize()
+        return temp_features
+
+    def addTreeData(self, temp_features,num_past = 1500):
+        optimal_node = None
+        # ourNodeSel.tree.show(data_property="variables")
+        for node in self.ourNodeSel.tree.leaves():
+            if checkIsOptimal(node, self.model, self.ourNodeSel.tree):
+                optimal_node = node
+                print("FOUND OPTIMal")
+
+        if optimal_node is None:
+            return
+
+        optimal_ids = getListOptimalID(optimal_node.identifier, self.ourNodeSel.tree)
+
+        for idToFeature in temp_features:
+            ids = idToFeature.keys()
+            for id in ids:
+                if id in optimal_ids:
+                    for otherid in ids:
+                        if id == otherid:
+                            continue
+                        self.sfeature_list.append(idToFeature[id] - idToFeature[otherid])
+                        self.soracle.append(torch.tensor([1], dtype=torch.float32));
+                        self.sfeature_list.append(idToFeature[otherid] - idToFeature[id])
+                        self.soracle.append(torch.tensor([-1], dtype=torch.float32));
+            samples = list(zip(self.sfeature_list, self.soracle))[-1 * num_past:]
+            return samples
+
     def train(self):
         self.policy.train()
         counter = 0
+        total_num_cases = 0
+        total_num_right = 0
+        average_loss = 0
         for epoch in range(self.num_repeat):
             for problem in self.problems:
-                if counter > self.num_train:
-                    break
-                counter += 1
-
-                temp_features = []
-
-                model = Model("setcover")
-                model.setRealParam('limits/time', self.time_limit)
-                ourNodeSel = self.nodesel(model, self.policy, dataset=temp_features)
-                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
-                model.readProblem(problem)
-                print(model.getStatus())
-                try:
-                    model.optimize()
-                except:
-                    continue
-                self.listNNodes.append(model.getNNodes())
+                temp_features = self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
                 print(self.listNNodes)
-                optimal_node = None
-                # ourNodeSel.tree.show(data_property="variables")
-                for node in ourNodeSel.tree.leaves():
-                    if checkIsOptimal(node, model, ourNodeSel.tree):
-                        optimal_node = node
-                        print("FOUND OPTIMal")
+                samples = self.addTreeData(temp_features)
 
-                if optimal_node is None:
-                    print("SCIPPING HERE")
-                    continue
-
-                optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
-
-                for idToFeature in temp_features:
-                    ids = idToFeature.keys()
-                    for id in ids:
-                        if id in optimal_ids:
-                            for otherid in ids:
-                                if id == otherid:
-                                    continue
-                                self.sfeature_list.append(idToFeature[id] - idToFeature[otherid])
-                                self.soracle.append(torch.tensor([1], dtype=torch.float32));
-                                self.sfeature_list.append(idToFeature[otherid] - idToFeature[id])
-                                self.soracle.append(torch.tensor([-1], dtype=torch.float32));
-
-                samples = list(zip(self.sfeature_list, self.soracle))[-1500:]
                 if self.isScippable():
                     continue
                 s_loader = DataLoader(samples, batch_size=1, shuffle=True)
@@ -192,13 +221,37 @@ class RankDagger(Dagger):
                         running_loss += loss.item()
                     print('[%d] loss: %.3f' %
                           (epoch + 1, running_loss / len(s_loader)))
-                    running_loss = 0.0
-
+                    average_loss += running_loss
+                    total_num_cases += len(samples)
+                    total_num_right +=
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
+
     def test(self, problems):
         return super().test(problems, self.nodesel)
+
+    def testAccuracy(self, problems):
+        real_problems = glob.glob(problems + "/*.lp")
+        for problem in real_problems:
+            temp_features = self.solveModel(problem)
+            self.listNNodes.append(self.model.getNNodes())
+            print(self.listNNodes)
+            samples = self.addTreeData(temp_features, num_past=0)
+
+        s_loader = DataLoader(samples, batch_size=1, shuffle=True)
+        for epoch in range(self.num_epoch):
+            running_loss = 0.0
+            for i, (feature, label) in enumerate(s_loader):
+                self.optimizer.zero_grad()
+                output = self.policy(feature)
+                loss = self.loss(output, label.to(device=self.device))
+                loss.backward()
+                self.optimizer.step()
+                running_loss += loss.item()
+            print('[%d] loss: %.3f' %
+                  (epoch + 1, running_loss / len(s_loader)))
+
 
 class TreeDagger(Dagger):
     def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
@@ -207,56 +260,94 @@ class TreeDagger(Dagger):
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
         self.time_limit = 600
+        self.model_name = "TreeDagger"
+
+
+
+    def solveModel(self, problem, default=False, to_train=True):
+        temp_features = []
+        torch.autograd.set_detect_anomaly(True)
+        self.model = Model("setcover")
+        step_ids = []
+        if not default:
+            if to_train:
+                ourNodeSel = self.nodesel(self.model, self.policy, dataset=temp_features, step_ids=step_ids)
+                self.model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+            else:
+                ourNodeSel = self.nodesel(self.model, self.policy)
+                self.model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+
+        init_scip_params_haoran(self.model, 10)
+        self.model.readProblem(problem)
+        self.model.setRealParam('limits/time', self.time_limit)
+        self.model.optimize()
+
+        return temp_features, step_ids, ourNodeSel
+
+    def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500):
+        optimal_node = None
+        for node in ourNodeSel.tree.leaves():
+            if checkIsOptimal(node, self.model, ourNodeSel.tree):
+                optimal_node = node
+                break
+
+        if optimal_node is not None:
+
+            optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
+            for i in range(len(temp_features)):
+                queue_contains_optimal = False
+                optimal_id = None
+                idlist = step_ids[i].flatten().tolist()
+                for id in idlist:
+                    if id in optimal_ids:
+                        queue_contains_optimal = True
+                        optimal_id = id
+                        break
+                if queue_contains_optimal:
+                    self.debug.append((optimal_id, step_ids))
+                    oracle_val = (step_ids[i] == optimal_id).type(torch.uint8).nonzero()[0][0]
+                    self.soracle.append(oracle_val)
+                    self.sfeature_list.append(temp_features[i])
+
+        samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1 * num_past:]
+        return samples
+
+    def compute(self, bg):
+        unbatched = dgl.unbatch(bg)
+        sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
+        g = bg
+        n = g.number_of_nodes()
+        h_size = 14
+        h = torch.zeros((n, h_size))
+        c = torch.zeros((n, h_size))
+        iou = torch.zeros((n, 3 * h_size))
+
+        outputs, _ = self.policy(g, h, c, iou)
+        outputs = size_splits(outputs, sizes)
+        return unbatched, outputs
+
     def train(self):
         self.policy.train()
         counter = 0
+        average_loss = 0
+        total_num_right = 0
+        total_num_cases = 0
         for epoch in range(self.num_repeat):
             for problem in self.problems:
-                if counter > self.num_train:
-                    break
-                counter += 1
                 print(problem)
-                temp_features = []
-                torch.autograd.set_detect_anomaly(True)
-                model = Model("setcover")
-                step_ids = []
-                ourNodeSel = self.nodesel(model, self.policy, dataset=temp_features, step_ids=step_ids)
-                init_scip_params_haoran(model, 10)
-                model.readProblem(problem)
-                model.setRealParam('limits/time', self.time_limit)
-                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
-                model.optimize()
 
-                self.listNNodes.append(model.getNNodes())
+                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
                 print(self.listNNodes)
 
-                optimal_node = None
+
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
-                for node in ourNodeSel.tree.leaves():
-                    if checkIsOptimal(node, model, ourNodeSel.tree):
-                        optimal_node = node
-                        break
 
-                if optimal_node is not None:
-                    optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
-                    for i in range(len(temp_features)):
-                        queue_contains_optimal = False
-                        optimal_id = None
-                        idlist = step_ids[i].flatten().tolist()
-                        for id in idlist:
-                            if id in optimal_ids:
-                                queue_contains_optimal = True
-                                optimal_id = id
-                                break
-                        if queue_contains_optimal:
-                            self.debug.append((optimal_id, step_ids))
-                            oracle_val = (step_ids[i]== optimal_id).type(torch.uint8).nonzero()[0][0]
-                            self.soracle.append(oracle_val)
-                            self.sfeature_list.append(temp_features[i])
                 if self.isScippable():
                     continue
-                samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1500:]
+
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
 
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
                 print('Number of datapoints: %d' % (len(samples)))
@@ -266,17 +357,7 @@ class TreeDagger(Dagger):
 
                     for (bg, labels) in s_loader:
                         self.optimizer.zero_grad()
-                        unbatched = dgl.unbatch(bg)
-                        sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
-                        g = bg
-                        n = g.number_of_nodes()
-                        h_size = 14
-                        h = torch.zeros((n, h_size))
-                        c = torch.zeros((n, h_size))
-                        iou = torch.zeros((n, 3 * h_size))
-
-                        outputs, _ = self.policy(g, h, c, iou)
-                        outputs = size_splits(outputs, sizes)
+                        unbatched, outputs = self.compute(bg)
                         total_loss = None
                         for i in range(len(unbatched)):
                             output = outputs[i]
@@ -292,10 +373,14 @@ class TreeDagger(Dagger):
                             else:
                                 total_loss = total_loss + loss
                             running_loss += loss.item()
+
                         self.optimizer.zero_grad()
                         total_loss.backward()
                         self.optimizer.step()
-
+                    total_loss += running_loss
+                    average_loss += total_loss
+                    total_num_cases += len(samples)
+                    total_num_right += number_right
                     print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
                           (epoch + 1, running_loss / len(samples), number_right/len(samples), number_right))
                     running_loss = 0.0
@@ -303,114 +388,95 @@ class TreeDagger(Dagger):
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
-
+        self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
 
     def test(self, problems):
         return super().test(problems, self.nodesel)
 
     def testAccuracy(self, problems):
         real_problems = glob.glob(problems + "/*.lp")
-
+        number_right = 0
+        total_loss = 0
         with torch.no_grad():
-            counter = 0
             for problem in real_problems:
-                if counter > self.num_train:
-                    break
-                counter += 1
                 print(problem)
-                temp_features = []
-                torch.autograd.set_detect_anomaly(True)
-                model = Model("setcover")
-                step_ids = []
-                ourNodeSel = self.nodesel(model, self.policy, dataset=temp_features, step_ids=step_ids)
-                # init_scip_params_haoran(model, 10)
-                model.readProblem(problem)
-                model.setRealParam('limits/time', self.time_limit)
-                model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
-                model.optimize()
 
-                self.listNNodes.append(model.getNNodes())
+                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
                 print(self.listNNodes)
 
-                optimal_node = None
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
-                for node in ourNodeSel.tree.leaves():
-                    if checkIsOptimal(node, model, ourNodeSel.tree):
-                        optimal_node = node
-                        break
 
-                if optimal_node is not None:
-                    optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
-                    for i in range(len(temp_features)):
-                        queue_contains_optimal = False
-                        optimal_id = None
-                        idlist = step_ids[i].flatten().tolist()
-                        for id in idlist:
-                            if id in optimal_ids:
-                                queue_contains_optimal = True
-                                optimal_id = id
-                                break
-                        if queue_contains_optimal:
-                            self.debug.append((optimal_id, step_ids))
-                            oracle_val = (step_ids[i] == optimal_id).type(torch.uint8).nonzero()[0][0]
-                            self.soracle.append(oracle_val)
-                            self.sfeature_list.append(temp_features[i])
-        samples = list(zip(self.sfeature_list, self.soracle, self.debug))
+                if self.isScippable():
+                    continue
 
-        s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-        print('Number of datapoints: %d' % (len(samples)))
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
 
-        running_loss = 0.0
-        number_right = 0
+            s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+            print('Number of datapoints: %d' % (len(samples)))
+            for (bg, labels) in s_loader:
+                self.optimizer.zero_grad()
+                unbatched, outputs = self.compute(bg)
+                for i in range(len(unbatched)):
+                    output = outputs[i]
+                    label = labels[i]
+                    _, indices = torch.max(output, 0)
+                    if indices.item() == label.item():
+                        number_right += 1
+                    output = output.unsqueeze(0)
+                    label = label.unsqueeze(0)
+                    loss = self.loss(output, label.to(device=self.device))
+                    total_loss += loss.item()
 
-        for (bg, labels) in s_loader:
-            self.optimizer.zero_grad()
-            unbatched = dgl.unbatch(bg)
-            sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
-            g = bg
-            n = g.number_of_nodes()
-            h_size = 14
-            h = torch.zeros((n, h_size))
-            c = torch.zeros((n, h_size))
-            iou = torch.zeros((n, 3 * h_size))
-
-            outputs, _ = self.policy(g, h, c, iou)
-            outputs = size_splits(outputs, sizes)
-            total_loss = None
-            for i in range(len(unbatched)):
-                output = outputs[i]
-                label = labels[i]
-                _, indices = torch.max(output, 0)
-                if indices.item() == label.item():
-                    number_right += 1
-
-
-        print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
-              (0, running_loss / len(samples), number_right / len(samples), number_right))
-
-
+            print('Number of datapoints: %d' % (len(samples)))
+            print('Accuracy %.2f' % (100 * number_right/len(samples)))
+        self.write_to_log_file("Test", problems, number_right/len(samples), total_loss/len(samples))
 class branchDagger(Dagger):
     def __init__(self, selector, problem_dir, device, time_limit=1500, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
         super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train, num_epoch, batch_size, save_path=save_path)
         self.time_limit = time_limit
+        self.model_name = "BranchDagger"
+
+
+    def solveModel(self, problem, to_train=True, default=False):
+        self.model = Model("setcover")
+        self.model.readProblem(problem)
+        self.model.setRealParam('limits/time', self.time_limit)
+        if not default:
+            myBranch = TreeBranch(self.model, self.policy, dataset=self.sfeature_list, train=to_train)
+            self.model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
+                                         priority=99999, maxdepth=-1, maxbounddist=1)
+        init_scip_params(self.model, 100, False, False, False, False, False, False)
+
+        self.model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
+        self.model.setBoolParam('branching/vanillafullstrong/idempotent', True)
+
+        self.model.optimize()
+
+    def compute(self, dgltree, branch_cand, default_gains, label_index):
+        h_size = 14
+        n = dgltree.number_of_nodes()
+        h = torch.zeros((n, h_size))
+        c = torch.zeros((n, h_size))
+        iou = torch.zeros((n, 3 * h_size))
+
+        best_var, tree_scores, down_scores, up_scores, vars = self.policy(dgltree, h, c, iou, branch_cand,
+                                                                          default_gains)
+        best_values = torch.tensor([100000 if label_index == var else 0 for var in vars], dtype=torch.float)
+
+        best_in = np.argmax(tree_scores.detach().numpy())
+        return best_values, best_in, down_scores, up_scores
 
     def train(self):
+        total_num_cases = 0
+        total_num_right = 0
+        average_loss = 0
+
         for epoch in range(self.num_repeat):
             for problem in self.problems:
                 print(problem)
-                model = Model("setcover")
-                model.readProblem(problem)
-                model.setRealParam('limits/time', self.time_limit)
-                myBranch = TreeBranch(model, self.policy, dataset = self.sfeature_list, train=True)
-                init_scip_params(model, 100, False, False, False, False, False, False)
-
-                model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
-                model.setBoolParam('branching/vanillafullstrong/idempotent', True)
-                model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
-                                        priority=99999, maxdepth=-1, maxbounddist=1)
-                model.optimize()
-
+                self.solveModel(problem)
                 if self.isScippable():
                     continue
                 for epoch in range(self.num_epoch):
@@ -419,81 +485,45 @@ class branchDagger(Dagger):
                     print(len(self.sfeature_list))
                     for (dgltree, branch_cand, default_gains, label_index, label) in self.sfeature_list:
                         self.optimizer.zero_grad()
-
-                        h_size = 14
-                        n = dgltree.number_of_nodes()
-                        h = torch.zeros((n, h_size))
-                        c = torch.zeros((n, h_size))
-                        iou = torch.zeros((n, 3 * h_size))
-
-                        best_var, tree_scores, down_scores, up_scores, vars = self.policy(dgltree, h, c, iou, branch_cand, default_gains)
-                        best_values = torch.tensor([100000 if label_index == var else 0 for var in vars], dtype=torch.float)
-
-                        best_in = np.argmax(tree_scores.detach().numpy())
+                        best_values, best_in, down_scores, up_scores = self.compute(dgltree, branch_cand, default_gains, label_index)
                         if label == best_in:
                             number_right += 1
-
-
                         tree_scores = tree_scores.unsqueeze(0)
-
-
                         loss = self.loss(down_scores, best_values)
-
                         loss.backward()
-
                         self.optimizer.step()
-
                         running_loss += loss.item()
-
+                    average_loss += running_loss
+                    total_num_cases += len(self.sfeature_list)
+                    total_num_right += number_right
                     print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
-                          (epoch + 1, running_loss / len(dataset), number_right / len(dataset), number_right))
+                          (epoch + 1, running_loss / len(self.sfeature_list), number_right / len(self.sfeature_list), number_right))
 
-                #
-                # if self.train and not pre_calculated:
-                #     best_in = np.argmax(tree_scores.detach().numpy())
-                #     if label == best_in:
-                #         self.num_right += 1
-                #     self.optimizer.zero_grad()
-                #     tree_scores = tree_scores.unsqueeze(0)
-                #     label = torch.tensor(label).unsqueeze(0)
-                #     loss = self.loss(tree_scores, label)
-                #
-                #     self.total_loss *= self.num_example
-                #     self.total_loss += loss.item()
-                #     self.num_example += 1
-                #     self.total_loss = self.total_loss / self.num_example
-                #     loss.backward()
-                #     self.optimizer.step()
-                #
-                # if self.train:
-                #     if os.path.exists(self.save_path):
-                #         os.remove(self.save_path)
-                #     torch.save(self.policy.state_dict(), self.save_path)
+        self.write_to_log_file("train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
 
-    def test(self, problems):
+    def testAccuracy(self, problems):
         with torch.no_grad():
             real_problems = glob.glob(problems + "/*.lp")
-            num_nodes = []
-            default = []
+            self.sfeature_list = []
             for problem in real_problems:
                 print(problem)
-                model = Model("setcover")
-                ourNodeSel = MyNodesel(model, self.policy)
-                model.readProblem(problem)
-                myBranch = TreeBranch(model, self.policy, train=False)
-                init_scip_params(model, 100, False, False, False, False, False, False)
+                self.solveModel(problem)
+                if self.isScippable():
+                    continue
+                running_loss = 0.0
+                number_right = 0
+                print(len(self.sfeature_list))
+            for (dgltree, branch_cand, default_gains, label_index, label) in self.sfeature_list:
+                self.optimizer.zero_grad()
+                best_values, best_in, down_scores, up_scores = self.compute(dgltree, branch_cand, default_gains,
+                                                                            label_index)
+                if label == best_in:
+                    number_right += 1
 
-                model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
-                model.setBoolParam('branching/vanillafullstrong/idempotent', True)
-                model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
-                                        priority=99999, maxdepth=-1, maxbounddist=1)
-                model.optimize()
-                num_nodes.append(model.getNNodes())
-            for problem in real_problems:
-                print(problem)
-                model = Model("setcover")
-                model.setRealParam('limits/time', self.time_limit)
-                model.readProblem(problem)
-                model.optimize()
-                default.append(model.getNNodes())
-        return num_nodes, default 
+                loss = self.loss(down_scores, best_values)
+                running_loss += loss.item()
+
+            print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
+                  (0, running_loss / len(self.sfeature_list), number_right / len(self.sfeature_list),
+                   number_right))
+            self.write_to_log_file("Test", problems, number_right / len(self.sfeature_list), running_loss / len(self.sfeature_list))
