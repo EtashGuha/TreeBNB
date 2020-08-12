@@ -312,7 +312,6 @@ class TreeDagger(Dagger):
         return temp_features, step_ids, ourNodeSel
 
     def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500):
-        ourNodeSel.tree.show()
         optimal_node = None
         for node in ourNodeSel.tree.leaves():
             if checkIsOptimal(node, self.model, ourNodeSel.tree):

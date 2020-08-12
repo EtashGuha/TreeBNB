@@ -10,3 +10,5 @@
 11/08/2020 22:56:29: Type: Test, Model Name: RankDagger, Data Path: ../realsingle, Accuracy: 1363.64, Loss: 0.51 
 11/08/2020 22:57:48: Type: Test, Model Name: RankDagger, Data Path: ../realsingle, Accuracy: 1363.64, Loss: 1.08 
 11/08/2020 22:59:07: Type: Test, Model Name: RankDagger, Data Path: ../realsingle, Accuracy: 7.33, Loss: 1.08 
+12/08/2020 01:39:16: Type: Train, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 56.70, Loss: 1.67, Description: Training single instance to get debug accuracy
+12/08/2020 10:51:47: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 59.26, Loss: 1.00 
