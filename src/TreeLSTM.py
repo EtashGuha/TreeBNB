@@ -127,11 +127,12 @@ class ShallowLib(nn.Module):
         return self.fc3(x)
 
 class LinLib(nn.Module):
-    def __init__(self, in_dim):
+    def __init__(self, in_dim, device):
         super(LinLib, self).__init__()
         self.fc1 = nn.Linear(in_dim, 1)
-
+        self.device = device
     def forward(self, x):
+        x = x.to(device=self.device)
         return self.fc1(x)
 
 
@@ -205,7 +206,6 @@ class TreeLSTMBranch(nn.Module):
                 #use shallow neural net to calc score with
                 score = torch.tensor([score_val], dtype=torch.float, requires_grad=True)
             else:
-                print("calculating")
                 pseudodown = torch.dot(history,down_scores)/torch.sum(history)
                 pseudoup = torch.dot(history,up_scores)/torch.sum(history)
                 score = (1 - self.mu) * min(pseudodown, pseudodown) + self.mu * max(pseudodown, pseudoup)

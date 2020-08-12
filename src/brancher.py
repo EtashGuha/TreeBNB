@@ -37,6 +37,9 @@ class TreeBranch(Branchrule):
         self.default_gains = None
         self.train = train
         self.counter = 0
+        self.node_numbers = set()
+        self.num_cutoff = 0
+        self.num_reddom = 0
     def branchinit(self):
         self.root_buffer = {}
 
@@ -55,20 +58,21 @@ class TreeBranch(Branchrule):
         branch_cands = self.model.getLPBranchCands()
         self.cand_indeces = [cand.getIndex() for cand in branch_cands[0]]
         nbranch_cand = len(branch_cands[0])
-        print(nbranch_cand)
         curr_node = self.model.getCurrentNode()
         pre_calculated = False
-        if self.counter == 1 :
+
+        if self.counter > 2 and self.counter < 5 :
             best_var, self.default_gains = self.getFullStrong()
             pre_calculated = True
-
+        else:
+            self.default_gains = [(1,1)] * nbranch_cand
         curr_tree_node = None
 
         variables_values = {}
         for var in self.model.getVars():
             variables_values[var.getIndex()] = (var.getLbLocal(), var.getUbLocal())
 
-        if curr_node != None:
+        if curr_node != None and not pre_calculated:
             number = curr_node.getNumber()
             if self.tree.size() == 0 or curr_node.getParent() == None:
                 self.tree = Tree()
@@ -93,7 +97,7 @@ class TreeBranch(Branchrule):
                                                     lp_obj_val=self.model.getLPObjVal()))
 
             curr_tree_node = self.tree.get_node(number)
-            
+            self.node_numbers.add(number)
         if self.tree.size() != 0 and not pre_calculated:
             setRoot(self.tree, curr_node.getNumber())
 
@@ -106,13 +110,17 @@ class TreeBranch(Branchrule):
         else:
             best_var = 0
 
-        curr_tree_node.data.variable_chosen = branch_cands[0][best_var].getIndex()
-        if curr_node.getParent() != None:
-            parent_node = self.tree.get_node(curr_node.getParent().getNumber())
-            if self.goneDown[curr_node.getNumber()] == True:
-                parent_node.data.calc_down_improvements(self.model.getLPObjVal(), branch_cands[0][best_var])
-            else:
-                parent_node.data.calc_up_improvements(self.model.getLPObjVal(), branch_cands[0][best_var])
+        if not pre_calculated:
+            curr_tree_node.data.conflict_score = self.model.getVarConflictScore(branch_cands[0][best_var])
+            curr_tree_node.data.inference_score = self.model.getVarAvgInferenceScore(branch_cands[0][best_var])
+            curr_tree_node.data.variable_chosen = branch_cands[0][best_var].getIndex()
+            if curr_node.getParent() != None:
+                parent_node = self.tree.get_node(curr_node.getParent().getNumber())
+                if self.goneDown[curr_node.getNumber()] == True:
+                    parent_node.data.calc_down_improvements(self.model.getLPObjVal(), branch_cands[0][best_var])
+                else:
+                    parent_node.data.calc_up_improvements(self.model.getLPObjVal(), branch_cands[0][best_var])
+
 
         if self.train and not pre_calculated:
             self.model.executeBranchRule('vanillafullstrong', allowaddcons)
@@ -162,10 +170,13 @@ class TreeBranch(Branchrule):
         down_var_UBs = torch.zeros((len(cols), 1))
         down_var_LBs = torch.zeros((len(cols), 1))
         branch_scores = []
-
+        best_cand = None
+        data = []
         total_gains = []
         for i in range(self.nprio_lpcands):
+
             variable = self.branch_cand[0][i]
+            curr_node = self.model.getCurrentNode()
             up_gain, up_score, up_sol, up_var_UB, up_var_LB = \
                 probing_features_extraction(self.model, i, self.branch_cand, rounding_direction='up')
 
@@ -175,19 +186,19 @@ class TreeBranch(Branchrule):
             # frac_data = model.getVarStrongbranchFrac(self.branch_cand[0][i], 1)
 
             # cutOff and domainRed
-            if up_score == self.model.infinity() or down_score == self.model.infinity():
-                if up_score == self.model.infinity() and down_score == self.model.infinity():
-                    # cutoff
-                    self.num_cutoff += 1
-                    break
-                elif down_score == self.model.infinity():
-                    self.model.tightenVarLb(self.branch_cand[0][i], int(np.ceil(self.branch_cand[1][i])), force=True)
-                    self.num_reddom += 1
-                    break
-                else:
-                    self.model.tightenVarUb(self.branch_cand[0][i], int(np.floor(self.branch_cand[1][i])), force=True)
-                    self.num_reddom += 1
-                    break
+            # if up_score == self.model.infinity() or down_score == self.model.infinity():
+            #     if up_score == self.model.infinity() and down_score == self.model.infinity():
+            #         # cutoff
+            #         self.num_cutoff += 1
+            #         break
+            #     elif down_score == self.model.infinity():
+            #         self.model.tightenVarLb(self.branch_cand[0][i], int(np.ceil(self.branch_cand[1][i])), force=True)
+            #         self.num_reddom += 1
+            #         break
+            #     else:
+            #         self.model.tightenVarUb(self.branch_cand[0][i], int(np.floor(self.branch_cand[1][i])), force=True)
+            #         self.num_reddom += 1
+            #         break
             gains = [down_gain, up_gain, 0]
             scaled_gains = [down_gain/(variable.getLPSol() - int(np.floor(variable.getLPSol()))), up_gain/(int(np.ceil(variable.getLPSol())) - variable.getLPSol()), 0]
             total_gains.append(scaled_gains)
@@ -205,7 +216,47 @@ class TreeBranch(Branchrule):
             down_var_LBs = torch.cat((down_var_LBs, down_var_LB), 1)
             down_var_UBs = torch.cat((down_var_UBs, down_var_UB), 1)
             branch_scores.append(branch_score)
-        return best_cand, total_gains, [self.branch_cand[0][var].getIndex() for var in range(self.nprio_lpcands) ]
+            data.append((variable,i,scaled_gains))
+
+        for (variable, i, scaled_gains) in data:
+            curr_node = self.model.getCurrentNode()
+            if i != best_cand:
+                number = min(self.node_numbers) - 1
+                self.node_numbers.add(number)
+            else:
+                number = curr_node.getNumber()
+                self.node_numbers.add(number)
+
+            if self.tree.size() == 0 or curr_node.getParent() == None:
+                self.tree = Tree()
+                self.tree.create_node(number, number, data=nodeData(curr_node, self.model.getLPObjVal(), self.model,
+                                                                    lp_obj_val=self.model.getLPObjVal()))
+                self.nodeToBounds[curr_node] = ([], [], [])
+                self.root_id = number
+            else:
+                variables, branch_bounds, bound_types = curr_node.getParentBranchings()
+                parent_node = curr_node.getParent()
+                parent_num = parent_node.getNumber()
+                parent_variables, parent_bb, parent_bt = self.nodeToBounds[parent_node]
+                curr_variables = list(parent_variables) + variables
+                curr_bb = list(parent_bb) + branch_bounds
+                curr_bt = list(parent_bt) + bound_types
+                self.nodeToBounds[curr_node] = (curr_variables, curr_bb, curr_bt)
+
+                self.tree.create_node(number, number, parent=parent_num,
+                                      data=nodeData(curr_node, self.model.getLPObjVal(), self.model,
+                                                    variables=variables,
+                                                    bound_types=bound_types, branch_bounds=branch_bounds,
+                                                    lp_obj_val=self.model.getLPObjVal(),
+                                                    variable_chosen=variable.getIndex(),
+                                                    conflict_score=self.model.getVarConflictScore(variable),
+                                                    inference_score=self.model.getVarAvgInferenceScore(variable),
+                                                    scaled_improvement_down=scaled_gains[0],
+                                                    scaled_improvement_up=scaled_gains[1],
+                                      ))
+
+
+        return best_cand, total_gains
 
 
     def branching(self, variable):

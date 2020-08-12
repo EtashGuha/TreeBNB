@@ -1,7 +1,7 @@
 import torch.sparse
 import faulthandler
 from TreeLSTM import TreeLSTMCell, TreeLSTM, LinLib, ShallowLib
-from dagger import TreeDagger, RankDagger
+from dagger import TreeDagger, RankDagger, branchDagger
 import pickle
 import os
 import matplotlib.pyplot as plt
@@ -10,9 +10,9 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
     Branchrule, Nodesel
 from brancher import TreeBranch
 import torch
+import sys
 from utilities import init_scip_params
-device = torch.device('cpu')
-
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # hyper parameters
 x_size = 14
 h_size = 14
@@ -21,6 +21,36 @@ lr = 0.05
 weight_decay = 1000000000000
 epochs = 10
 
+
+mode = sys.argv[1]
+if mode == "tree":
+    lstmFeature = TreeLSTM(x_size,
+                           h_size,
+                           dropout,
+                           device=device)
+    lstmFeature.to(device)
+    lstmFeature.cell.to(device)
+    if os.path.exists("../lstmFeature.pt"):
+        lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
+    my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
+    my_dagger.testAccuracy("../realsingle")
+
+
+elif mode == "baseline":
+    lstmFeature = LinLib(x_size, device)
+    lstmFeature.to(device)
+
+    if os.path.exists("../lstmFeatureRank.pt"):
+        lstmFeature.load_state_dict(torch.load("../lstmFeatureRank.pt"))
+
+    my_dagger = RankDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device,
+                           num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
+    my_dagger.testAccuracy("../realsingle")
+
+    # tree_vals , def_vals = my_dagger.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+
+    # print(tree_vals)
+    # print(def_vals)
 # create the model
 # lstmFeature = TreeLSTM(x_size,
 #                        h_size,
@@ -32,52 +62,13 @@ epochs = 10
 #     lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 #
 # my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-# tree_vals, def_vals = my_dagger.test("../data/instances/setcover/test_200r_400c_0.1d_0mc_10se")
+# my_dagger.testAccuracy("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
 # with open('answer.pkl', 'wb') as f:
 #     pickle.dump([tree_vals, def_vals], f)
 # print(tree_vals)
 # print(def_vals)
 
 
-
-
-lstmFeature = TreeLSTMBranch(x_size,
-                       h_size,
-                       dropout,
-                       device=device)
-lstmFeature.load_state_dict(torch.load("branch_lstm.pt"))
-
-
-problem = "../data/instances/setcover/train_200r_400c_0.1d_0mc_10se/instance_92.lp"
-model = Model("setcover")
-model.readProblem(problem)
-model.setRealParam('limits/time', 300)
-myBranch = TreeBranch(model, lstmFeature,  train=False)
-init_scip_params(model, 100, False, False, False, False, False, False)
-
-model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
-model.setBoolParam('branching/vanillafullstrong/idempotent', True)
-
-model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
-                                    priority=99999, maxdepth=-1, maxbounddist=1)
-model.optimize()
-withTree = model.getNNodes()
-
-model = Model("setcover")
-model.readProblem(problem)
-model.setRealParam('limits/time', 300)
-init_scip_params(model, 100, False, False, False, False, False, False)
-
-myBranch = TreeBranch(model, lstmFeature,  train=False)
-model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
-model.setBoolParam('branching/vanillafullstrong/idempotent', True)
-
-model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
-                                    priority=99999, maxdepth=-1, maxbounddist=1)
-model.optimize()
-withoutTree = model.getNNodes()
-print(withTree)
-print(withoutTree)
 # How many nodes to get last primal bound change
 # Why is the feature shallow very unstable?
 # How to use to create a structure  by thhe relationship of variables
