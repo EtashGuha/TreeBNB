@@ -10,6 +10,7 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
     Branchrule, Nodesel
 from brancher import TreeBranch
 import torch
+import sys
 from utilities import init_scip_params
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # hyper parameters
@@ -21,7 +22,7 @@ weight_decay = 1000000000000
 epochs = 10
 
 
-mode = "baseline"
+mode = sys.argv[1]
 if mode == "tree":
     lstmFeature = TreeLSTM(x_size,
                            h_size,
@@ -32,7 +33,7 @@ if mode == "tree":
     if os.path.exists("../lstmFeature.pt"):
         lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
     my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-    my_dagger.testAccuracy("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+    my_dagger.testAccuracy("../realsingle")
 
 
 elif mode == "baseline":
@@ -44,9 +45,12 @@ elif mode == "baseline":
 
     my_dagger = RankDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device,
                            num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
-    tree_vals , def_vals = my_dagger.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
-    print(tree_vals)
-    print(def_vals)
+    my_dagger.testAccuracy("../realsingle")
+
+    # tree_vals , def_vals = my_dagger.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+
+    # print(tree_vals)
+    # print(def_vals)
 # create the model
 # lstmFeature = TreeLSTM(x_size,
 #                        h_size,

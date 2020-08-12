@@ -94,7 +94,9 @@ class Dagger():
         self.batch_size = batch_size
         self.num_repeat = num_repeat
         self.num_features = 0
-
+        self.description = None
+    def setDescription(self, text):
+        self.description = text
     def isScippable(self):
         if self.num_features == len(self.sfeature_list):
             return True
@@ -127,9 +129,14 @@ class Dagger():
         return num_nodes, default
 
     def write_to_log_file(self, type, data_path, accuracy, loss):
+
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-        log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f \n" % (dt_string, type, self.model_name, data_path, accuracy, loss))
+        if self.description is not None:
+            log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f, Description: %s\n" % (
+            dt_string, type, self.model_name, data_path, 100 * accuracy, loss, self.description))
+        else:
+            log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f \n" % (dt_string, type, self.model_name, data_path, 100 * accuracy, loss))
         file_object = open('../log/log.txt', 'a')
         file_object.write(log)
         file_object.close()
@@ -168,6 +175,8 @@ class RankDagger(Dagger):
         return temp_features
 
     def addTreeData(self, temp_features,num_past = 1500):
+        num_right = 0
+        num_cases = 0
         optimal_node = None
         # ourNodeSel.tree.show(data_property="variables")
         for node in self.ourNodeSel.tree.leaves():
@@ -176,7 +185,7 @@ class RankDagger(Dagger):
                 print("FOUND OPTIMal")
 
         if optimal_node is None:
-            return
+            return None, 0, 0
 
         optimal_ids = getListOptimalID(optimal_node.identifier, self.ourNodeSel.tree)
 
@@ -191,22 +200,40 @@ class RankDagger(Dagger):
                         self.soracle.append(torch.tensor([1], dtype=torch.float32));
                         self.sfeature_list.append(idToFeature[otherid] - idToFeature[id])
                         self.soracle.append(torch.tensor([-1], dtype=torch.float32));
+
+            for_accuracy_feat = [idToFeature[id] for id in ids]
+            labels = [1 if id in optimal_ids else 0 for id in ids]
+            if 1 not in labels:
+                continue
+            best_node = labels.index(1)
+
+            with torch.no_grad():
+                vals = [self.policy(feature) for feature in for_accuracy_feat]
+                true_best_node = np.argmax(vals)
+            if best_node == true_best_node:
+                num_right += 1
+            num_cases += 1
             samples = list(zip(self.sfeature_list, self.soracle))[-1 * num_past:]
-            return samples
+        return samples, num_right, num_cases
 
     def train(self):
         self.policy.train()
+        self.feature_set_for_accuracy = []
         counter = 0
         total_num_cases = 0
         total_num_right = 0
+        total_num_predict = 0
         average_loss = 0
         for epoch in range(self.num_repeat):
             for problem in self.problems:
                 temp_features = self.solveModel(problem)
                 self.listNNodes.append(self.model.getNNodes())
                 print(self.listNNodes)
-                samples = self.addTreeData(temp_features)
-
+                samples, num_right, num_cases_predict = self.addTreeData(temp_features)
+                if samples is None:
+                    continue
+                total_num_right += num_right
+                total_num_predict += num_cases_predict
                 if self.isScippable():
                     continue
                 s_loader = DataLoader(samples, batch_size=1, shuffle=True)
@@ -223,36 +250,36 @@ class RankDagger(Dagger):
                           (epoch + 1, running_loss / len(s_loader)))
                     average_loss += running_loss
                     total_num_cases += len(samples)
-                    total_num_right +=
+
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
-
+        self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_predict, average_loss/total_num_cases)
     def test(self, problems):
         return super().test(problems, self.nodesel)
 
     def testAccuracy(self, problems):
         real_problems = glob.glob(problems + "/*.lp")
+        total_num_cases = 0
+        total_num_right = 0
         for problem in real_problems:
             temp_features = self.solveModel(problem)
             self.listNNodes.append(self.model.getNNodes())
             print(self.listNNodes)
-            samples = self.addTreeData(temp_features, num_past=0)
-
+            samples, num_right, num_cases = self.addTreeData(temp_features, num_past=0)
+            total_num_cases += num_cases
+            total_num_right += num_right
         s_loader = DataLoader(samples, batch_size=1, shuffle=True)
-        for epoch in range(self.num_epoch):
-            running_loss = 0.0
-            for i, (feature, label) in enumerate(s_loader):
-                self.optimizer.zero_grad()
-                output = self.policy(feature)
-                loss = self.loss(output, label.to(device=self.device))
-                loss.backward()
-                self.optimizer.step()
-                running_loss += loss.item()
-            print('[%d] loss: %.3f' %
-                  (epoch + 1, running_loss / len(s_loader)))
 
+        running_loss = 0.0
+        for i, (feature, label) in enumerate(s_loader):
+            output = self.policy(feature)
+            loss = self.loss(output, label.to(device=self.device))
+            running_loss += loss.item()
+        print('[%d] loss: %.3f' %
+              (0, running_loss / len(s_loader)))
 
+        self.write_to_log_file("Test", problems, total_num_right/total_num_cases, running_loss / len(s_loader))
 class TreeDagger(Dagger):
     def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
         print(num_repeat)
@@ -285,6 +312,7 @@ class TreeDagger(Dagger):
         return temp_features, step_ids, ourNodeSel
 
     def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500):
+        ourNodeSel.tree.show()
         optimal_node = None
         for node in ourNodeSel.tree.leaves():
             if checkIsOptimal(node, self.model, ourNodeSel.tree):
@@ -343,18 +371,18 @@ class TreeDagger(Dagger):
 
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
 
                 if self.isScippable():
                     continue
 
-                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
 
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
                 print('Number of datapoints: %d' % (len(samples)))
                 for epoch in range(self.num_epoch):
                     running_loss = 0.0
                     number_right = 0
-
+                    print("loading")
                     for (bg, labels) in s_loader:
                         self.optimizer.zero_grad()
                         unbatched, outputs = self.compute(bg)
@@ -397,6 +425,7 @@ class TreeDagger(Dagger):
         real_problems = glob.glob(problems + "/*.lp")
         number_right = 0
         total_loss = 0
+
         with torch.no_grad():
             for problem in real_problems:
                 print(problem)
@@ -408,10 +437,10 @@ class TreeDagger(Dagger):
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
 
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_past=0)
+
                 if self.isScippable():
                     continue
-
-                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
 
             s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
             print('Number of datapoints: %d' % (len(samples)))
@@ -437,7 +466,7 @@ class branchDagger(Dagger):
         super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train, num_epoch, batch_size, save_path=save_path)
         self.time_limit = time_limit
         self.model_name = "BranchDagger"
-
+        self.num_repeat = num_repeat
 
     def solveModel(self, problem, to_train=True, default=False):
         self.model = Model("setcover")
@@ -466,7 +495,7 @@ class branchDagger(Dagger):
         best_values = torch.tensor([100000 if label_index == var else 0 for var in vars], dtype=torch.float)
 
         best_in = np.argmax(tree_scores.detach().numpy())
-        return best_values, best_in, down_scores, up_scores
+        return best_values, best_in, down_scores, up_scores,
 
     def train(self):
         total_num_cases = 0
@@ -488,7 +517,7 @@ class branchDagger(Dagger):
                         best_values, best_in, down_scores, up_scores = self.compute(dgltree, branch_cand, default_gains, label_index)
                         if label == best_in:
                             number_right += 1
-                        tree_scores = tree_scores.unsqueeze(0)
+
                         loss = self.loss(down_scores, best_values)
                         loss.backward()
                         self.optimizer.step()
@@ -512,18 +541,18 @@ class branchDagger(Dagger):
                     continue
                 running_loss = 0.0
                 number_right = 0
-                print(len(self.sfeature_list))
-            for (dgltree, branch_cand, default_gains, label_index, label) in self.sfeature_list:
-                self.optimizer.zero_grad()
-                best_values, best_in, down_scores, up_scores = self.compute(dgltree, branch_cand, default_gains,
-                                                                            label_index)
-                if label == best_in:
-                    number_right += 1
+            with torch.no_grad():
+                for (dgltree, branch_cand, default_gains, label_index, label) in self.sfeature_list:
 
-                loss = self.loss(down_scores, best_values)
-                running_loss += loss.item()
+                    best_values, best_in, down_scores, up_scores = self.compute(dgltree, branch_cand, default_gains,
+                                                                                label_index)
+                    if label == best_in:
+                        number_right += 1
 
-            print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
-                  (0, running_loss / len(self.sfeature_list), number_right / len(self.sfeature_list),
-                   number_right))
-            self.write_to_log_file("Test", problems, number_right / len(self.sfeature_list), running_loss / len(self.sfeature_list))
+                    loss = self.loss(down_scores, best_values)
+                    running_loss += loss.item()
+
+                print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
+                      (0, running_loss / len(self.sfeature_list), number_right / len(self.sfeature_list),
+                       number_right))
+                self.write_to_log_file("Test", problems, number_right / len(self.sfeature_list), running_loss / len(self.sfeature_list))

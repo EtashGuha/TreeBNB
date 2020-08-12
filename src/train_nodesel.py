@@ -11,7 +11,7 @@ import torch
 from TreeLSTM import TreeLSTMBranch
 from utilities import init_scip_params
 from dagger import branchDagger
-
+import sys
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -22,7 +22,7 @@ dropout = 0.5
 lr = 0.05
 weight_decay = 1000000000000
 epochs = 10
-mode = "baseline"
+mode = sys.argv[1]
 if mode == "tree":
     lstmFeature = TreeLSTM(x_size,
                            h_size,
@@ -31,7 +31,8 @@ if mode == "tree":
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
 
-    my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
+    my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_repeat=1, num_train = 1000, num_epoch= 1 , save_path="../lstmFeature.pt")
+    my_dagger.setDescription("First Run")
     my_dagger.train()
 
     print(my_dagger.listNNodes)
@@ -39,6 +40,8 @@ elif mode == "baseline":
     lstmFeature = LinLib(x_size, device)
     lstmFeature.to(device)
 
-    my_dagger = RankDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device,
-                           num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
+    my_dagger = RankDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_repeat=1,
+                           num_train=1000, num_epoch=1, save_path="../lstmFeatureRank.pt")
+    my_dagger.setDescription("First Run")
+
     my_dagger.train()

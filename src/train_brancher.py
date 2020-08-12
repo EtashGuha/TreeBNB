@@ -26,5 +26,5 @@ lstmFeature = TreeLSTMBranch(x_size,
                        dropout,
                        device=device)
 
-my_dagger = branchDagger(lstmFeature, "../realsingle", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
+my_dagger = branchDagger(lstmFeature, "../realsingle", device, num_train = 1000, num_epoch=1, num_repeat=1, save_path="../lstmFeature.pt")
 my_dagger.train()

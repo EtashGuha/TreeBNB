@@ -1,0 +1,12 @@
+11/08/2020 21:28:19: Type: Train, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 100.00, Loss: 1.58, Description: First Run
+11/08/2020 21:28:39: Type: Train, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 83.33, Loss: 1.33, Description: First Run
+11/08/2020 21:36:55: Type: Train, Model Name: RankDagger, Data Path: ../realsingle, Accuracy: 13.46, Loss: 0.26, Description: First Run
+11/08/2020 22:05:42: Type: train, Model Name: BranchDagger, Data Path: ../realsingle, Accuracy: 1.49, Loss: 52487430.30 
+11/08/2020 22:44:22: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 4.68, Loss: 4.16 
+11/08/2020 22:46:10: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 4.68, Loss: 4.16 
+11/08/2020 22:52:40: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 11.27, Loss: 3.30 
+11/08/2020 22:53:44: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 11.27, Loss: 3.30 
+11/08/2020 22:55:24: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 7.32, Loss: 5.08 
+11/08/2020 22:56:29: Type: Test, Model Name: RankDagger, Data Path: ../realsingle, Accuracy: 1363.64, Loss: 0.51 
+11/08/2020 22:57:48: Type: Test, Model Name: RankDagger, Data Path: ../realsingle, Accuracy: 1363.64, Loss: 1.08 
+11/08/2020 22:59:07: Type: Test, Model Name: RankDagger, Data Path: ../realsingle, Accuracy: 7.33, Loss: 1.08 
