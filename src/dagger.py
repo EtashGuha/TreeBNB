@@ -361,57 +361,59 @@ class TreeDagger(Dagger):
         total_num_cases = 0
         for epoch in range(self.num_repeat):
             for problem in self.problems:
-                print(problem)
+                try:
+                    print(problem)
 
-                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
-                self.listNNodes.append(self.model.getNNodes())
-                print(self.listNNodes)
+                    temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                    self.listNNodes.append(self.model.getNNodes())
+                    print(self.listNNodes)
 
 
-                if len(ourNodeSel.tree.all_nodes()) < 2:
+                    if len(ourNodeSel.tree.all_nodes()) < 2:
+                        continue
+                    samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
+
+                    if self.isScippable():
+                        continue
+
+
+                    s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+                    print('Number of datapoints: %d' % (len(samples)))
+                    for epoch in range(self.num_epoch):
+                        running_loss = 0.0
+                        number_right = 0
+                        print("loading")
+                        for (bg, labels) in s_loader:
+                            self.optimizer.zero_grad()
+                            unbatched, outputs = self.compute(bg)
+                            total_loss = None
+                            for i in range(len(unbatched)):
+                                output = outputs[i]
+                                label = labels[i]
+                                _, indices = torch.max(output, 0)
+                                if indices.item() == label.item():
+                                    number_right += 1
+                                output = output.unsqueeze(0)
+                                label = label.unsqueeze(0)
+                                loss = self.loss(output, label.to(device=self.device))
+                                if total_loss == None:
+                                    total_loss = loss
+                                else:
+                                    total_loss = total_loss + loss
+                                running_loss += loss.item()
+
+                            self.optimizer.zero_grad()
+                            total_loss.backward()
+                            self.optimizer.step()
+                        total_loss += running_loss
+                        average_loss += total_loss
+                        total_num_cases += len(samples)
+                        total_num_right += number_right
+                        print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
+                              (epoch + 1, running_loss / len(samples), number_right/len(samples), number_right))
+                        running_loss = 0.0
+                except:
                     continue
-                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
-
-                if self.isScippable():
-                    continue
-
-
-                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-                print('Number of datapoints: %d' % (len(samples)))
-                for epoch in range(self.num_epoch):
-                    running_loss = 0.0
-                    number_right = 0
-                    print("loading")
-                    for (bg, labels) in s_loader:
-                        self.optimizer.zero_grad()
-                        unbatched, outputs = self.compute(bg)
-                        total_loss = None
-                        for i in range(len(unbatched)):
-                            output = outputs[i]
-                            label = labels[i]
-                            _, indices = torch.max(output, 0)
-                            if indices.item() == label.item():
-                                number_right += 1
-                            output = output.unsqueeze(0)
-                            label = label.unsqueeze(0)
-                            loss = self.loss(output, label.to(device=self.device))
-                            if total_loss == None:
-                                total_loss = loss
-                            else:
-                                total_loss = total_loss + loss
-                            running_loss += loss.item()
-
-                        self.optimizer.zero_grad()
-                        total_loss.backward()
-                        self.optimizer.step()
-                    total_loss += running_loss
-                    average_loss += total_loss
-                    total_num_cases += len(samples)
-                    total_num_right += number_right
-                    print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
-                          (epoch + 1, running_loss / len(samples), number_right/len(samples), number_right))
-                    running_loss = 0.0
-
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
