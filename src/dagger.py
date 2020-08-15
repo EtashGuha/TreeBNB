@@ -128,7 +128,7 @@ class Dagger():
                 default.append(model.getNNodes())
         return num_nodes, default
 
-    def write_to_log_file(self, type, data_path, accuracy, loss):
+    def write_to_log_file(self, type, data_path, accuracy, loss, def_nodes=None):
 
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
@@ -137,6 +137,10 @@ class Dagger():
             dt_string, type, self.model_name, data_path, 100 * accuracy, loss, self.description))
         else:
             log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f \n" % (dt_string, type, self.model_name, data_path, 100 * accuracy, loss))
+        if self.listNNodes is not None and len(self.listNNodes) > 0:
+            log += ", NumNodes: " + ''.join(self.listNNodes)
+        if def_nodes is not None:
+            log += ", Default: " + ''.join(def_nodes)
         file_object = open('../log/log.txt', 'a')
         file_object.write(log)
         file_object.close()
@@ -255,8 +259,7 @@ class RankDagger(Dagger):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_predict, average_loss/total_num_cases)
-    def test(self, problems):
-        return super().test(problems, self.nodesel)
+
 
     def testAccuracy(self, problems):
         real_problems = glob.glob(problems + "/*.lp")
@@ -296,6 +299,7 @@ class TreeDagger(Dagger):
         torch.autograd.set_detect_anomaly(True)
         self.model = Model("setcover")
         step_ids = []
+        ourNodeSel = None
         if not default:
             if to_train:
                 ourNodeSel = self.nodesel(self.model, self.policy, dataset=temp_features, step_ids=step_ids)
@@ -308,7 +312,6 @@ class TreeDagger(Dagger):
         self.model.readProblem(problem)
         self.model.setRealParam('limits/time', self.time_limit)
         self.model.optimize()
-
         return temp_features, step_ids, ourNodeSel
 
     def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500):
@@ -504,6 +507,8 @@ class branchDagger(Dagger):
             for problem in self.problems:
                 print(problem)
                 self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
+                print(self.listNNodes)
                 if self.isScippable():
                     continue
                 for epoch in range(self.num_epoch):
@@ -535,6 +540,8 @@ class branchDagger(Dagger):
             for problem in real_problems:
                 print(problem)
                 self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
+                print(self.listNNodes)
                 if self.isScippable():
                     continue
                 running_loss = 0.0
