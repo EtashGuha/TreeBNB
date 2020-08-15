@@ -419,9 +419,6 @@ class TreeDagger(Dagger):
                 torch.save(self.policy.state_dict(), self.save_path)
         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
 
-    def test(self, problems):
-        return super().test(problems, self.nodesel)
-
     def testAccuracy(self, problems):
         real_problems = glob.glob(problems + "/*.lp")
         number_right = 0
