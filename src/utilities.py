@@ -164,3 +164,54 @@ def init_scip_params(model, seed, heuristics=True, presolving=True,
     #     pass
     # else:
     #     raise Exception('invalid input branching method')
+
+def personalize_scip(model, seed,
+                     presolver=False,
+                     separator=False,
+                     separator_root=False,
+                     propagator=False,
+                     restart=False,
+                     primal_heuristic=False,
+                     conflict=False,
+                     brancher='default',
+                     node_selector='default',
+                     diving_heuristic=False,
+                     relaxation=False,
+                     constraint=False,
+                     pricer=False,
+                     bender_decomposition=False):
+    presolver = True,
+    separator_root = True,
+    propagator = True
+    # todo: add more switches
+    seed = seed % 2147483648  # SCIP seed range
+    # randommization
+    model.setBoolParam('randomization/permutevars', True)
+    model.setIntParam('randomization/permutationseed', seed)
+    model.setIntParam('randomization/randomseedshift', seed)
+
+    if not separator:
+        # separation only at root node
+        model.setIntParam('separating/maxrounds', 0)
+        if not separator_root:
+            model.setIntParam('separating/maxroundsroot', 0)
+    # no restart
+    if not restart:
+        model.setIntParam('presolving/maxrestarts', 0)
+
+    # if asked, disable presolving
+    if not presolver:
+        model.setIntParam('presolving/maxrounds', 0)
+        model.setIntParam('presolving/maxrestarts', 0)
+
+    # if asked, disable conflict analysis (more cuts)
+    if not conflict:
+        model.setBoolParam('conflict/enable', False)
+
+    # if asked, disable primal heuristics
+    if not primal_heuristic:
+        model.setHeuristics(SCIP_PARAMSETTING.OFF)
+
+    # if asked, disable propagation heuristics
+    if not propagator:
+        model.disablePropagation(False)

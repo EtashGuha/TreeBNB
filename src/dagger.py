@@ -30,7 +30,7 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
     Branchrule, Nodesel
 import glob
 from TreeLSTM import TreeLSTMBranch
-from utilities import init_scip_params, init_scip_params_haoran
+from utilities import init_scip_params, init_scip_params_haoran, personalize_scip
 from brancher import TreeBranch
 
 import os
@@ -44,10 +44,19 @@ def plot_tree(g):
     plt.show()
 
 def collate(samples):
-    graphs, labels, debug = map(list, zip(*samples))
+    graphs, labels, _, weight = map(list, zip(*samples))
+    batched_graph = dgl.batch(graphs)
+    return batched_graph, torch.tensor(labels), weight
+
+def collate_unweight(samples):
+    graphs, labels, _ = map(list, zip(*samples))
     batched_graph = dgl.batch(graphs)
     return batched_graph, torch.tensor(labels)
 
+def position_in_array(count, arr):
+    for i in range(len(arr)):
+        if count < sum(arr[0:i+1]):
+            return i
 
 def size_splits(tensor, split_sizes, dim=0):
     """Splits the tensor according to chunks of split_sizes.
@@ -114,9 +123,9 @@ class Dagger():
                 model = Model("setcover")
                 ourNodeSel = MyNodesel(model, self.policy)
                 model.readProblem(problem)
-                # model.setRealParam('limits/time', self.time_limit)
+                model.setRealParam('limits/time', self.time_limit)
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
-                init_scip_params_haoran(model, 10)
+                personalize_scip(model, 10)
                 model.optimize()
                 num_nodes.append(model.getNNodes())
             for problem in real_problems:
@@ -124,8 +133,11 @@ class Dagger():
                 model = Model("setcover")
                 model.setRealParam('limits/time', self.time_limit)
                 model.readProblem(problem)
+                personalize_scip(model, 10)
                 model.optimize()
                 default.append(model.getNNodes())
+        self.write_to_log_file("Train", self.problem_dir, -1, -1, def_nodes=default)
+
         return num_nodes, default
 
     def write_to_log_file(self, type, data_path, accuracy, loss, def_nodes=None):
@@ -138,7 +150,7 @@ class Dagger():
         else:
             log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f \n" % (dt_string, type, self.model_name, data_path, 100 * accuracy, loss))
         if self.listNNodes is not None and len(self.listNNodes) > 0:
-            log += ", NumNodes: " + ''.join(self.listNNodes)
+            log = log + ", NumNodes: " + ''.join([str(v) for v in self.listNNodes])
         if def_nodes is not None:
             log += ", Default: " + ''.join(def_nodes)
         file_object = open('../log/log.txt', 'a')
@@ -291,7 +303,7 @@ class TreeDagger(Dagger):
         self.num_repeat = num_repeat
         self.time_limit = 600
         self.model_name = "TreeDagger"
-
+        self.weights = []
 
 
     def solveModel(self, problem, default=False, to_train=True):
@@ -308,19 +320,19 @@ class TreeDagger(Dagger):
                 ourNodeSel = self.nodesel(self.model, self.policy)
                 self.model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
 
-        init_scip_params_haoran(self.model, 10)
+        personalize_scip(self.model, 10)
         self.model.readProblem(problem)
         self.model.setRealParam('limits/time', self.time_limit)
         self.model.optimize()
         return temp_features, step_ids, ourNodeSel
 
-    def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500):
+    def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500, num_nodes=None):
         optimal_node = None
         for node in ourNodeSel.tree.leaves():
             if checkIsOptimal(node, self.model, ourNodeSel.tree):
                 optimal_node = node
                 break
-
+        print("hallo")
         if optimal_node is not None:
 
             optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
@@ -339,7 +351,9 @@ class TreeDagger(Dagger):
                     self.soracle.append(oracle_val)
                     self.sfeature_list.append(temp_features[i])
 
-        samples = list(zip(self.sfeature_list, self.soracle, self.debug))[-1 * num_past:]
+                    self.weights.append(1/len(temp_features))
+
+        samples = list(zip(self.sfeature_list, self.soracle, self.debug, self.weights))[-1 * num_past:]
         return samples
 
     def compute(self, bg):
@@ -364,59 +378,63 @@ class TreeDagger(Dagger):
         total_num_cases = 0
         for epoch in range(self.num_repeat):
             for problem in self.problems:
-                try:
-                    print(problem)
+                # try:
+                print(problem)
 
-                    temp_features, step_ids, ourNodeSel = self.solveModel(problem)
-                    self.listNNodes.append(self.model.getNNodes())
-                    print(self.listNNodes)
-
-
-                    if len(ourNodeSel.tree.all_nodes()) < 2:
-                        continue
-                    samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
-
-                    if self.isScippable():
-                        continue
+                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
+                print(self.listNNodes)
 
 
-                    s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-                    print('Number of datapoints: %d' % (len(samples)))
-                    for epoch in range(self.num_epoch):
-                        running_loss = 0.0
-                        number_right = 0
-                        print("loading")
-                        for (bg, labels) in s_loader:
-                            self.optimizer.zero_grad()
-                            unbatched, outputs = self.compute(bg)
-                            total_loss = None
-                            for i in range(len(unbatched)):
-                                output = outputs[i]
-                                label = labels[i]
-                                _, indices = torch.max(output, 0)
-                                if indices.item() == label.item():
-                                    number_right += 1
-                                output = output.unsqueeze(0)
-                                label = label.unsqueeze(0)
-                                loss = self.loss(output, label.to(device=self.device))
-                                if total_loss == None:
-                                    total_loss = loss
-                                else:
-                                    total_loss = total_loss + loss
-                                running_loss += loss.item()
-
-                            self.optimizer.zero_grad()
-                            total_loss.backward()
-                            self.optimizer.step()
-                        total_loss += running_loss
-                        average_loss += total_loss
-                        total_num_cases += len(samples)
-                        total_num_right += number_right
-                        print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
-                              (epoch + 1, running_loss / len(samples), number_right/len(samples), number_right))
-                        running_loss = 0.0
-                except:
+                if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_nodes=self.model.getNNodes())
+
+                if self.isScippable():
+                    continue
+
+
+                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+                print('Number of datapoints: %d' % (len(samples)))
+                for epoch in range(self.num_epoch):
+                    running_loss = 0.0
+                    number_right = 0
+                    total_weight = 0
+                    print("loading")
+                    for (bg, labels, weights) in s_loader:
+                        self.optimizer.zero_grad()
+
+                        unbatched, outputs = self.compute(bg)
+                        total_loss = None
+                        for i in range(len(unbatched)):
+                            output = outputs[i]
+                            label = labels[i]
+                            weight = weights[i]
+                            total_weight += weight
+                            _, indices = torch.max(output, 0)
+                            if indices.item() == label.item():
+                                number_right += 1 * weight
+                            output = output.unsqueeze(0)
+                            label = label.unsqueeze(0)
+                            loss = self.loss(output, label.to(device=self.device))
+                            if total_loss == None:
+                                total_loss = loss
+                            else:
+                                total_loss = total_loss + loss
+                            running_loss += loss.item() * weight
+                            total_weight += weight
+                        self.optimizer.zero_grad()
+                        total_loss.backward()
+                        self.optimizer.step()
+                    total_loss += running_loss
+                    average_loss += total_loss
+                    total_num_cases += len(samples)
+                    total_num_right += number_right
+                    print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
+                          (epoch + 1, running_loss / total_weight, number_right/total_weight, number_right))
+                    running_loss = 0.0
+                # except:
+                #     continue
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
@@ -443,25 +461,29 @@ class TreeDagger(Dagger):
                 if self.isScippable():
                     continue
 
-            s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+            s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=False, collate_fn=collate)
             print('Number of datapoints: %d' % (len(samples)))
-            for (bg, labels) in s_loader:
+            count = 0
+            for (bg, labels, weights) in s_loader:
                 self.optimizer.zero_grad()
                 unbatched, outputs = self.compute(bg)
                 for i in range(len(unbatched)):
+                    num_nodes = self.listNNodes[position_in_array(count, self.listNNodes)]
+                    count += 1
                     output = outputs[i]
                     label = labels[i]
+                    weight = weights[i]
                     _, indices = torch.max(output, 0)
                     if indices.item() == label.item():
-                        number_right += 1
+                        number_right += 1 * weight
                     output = output.unsqueeze(0)
                     label = label.unsqueeze(0)
                     loss = self.loss(output, label.to(device=self.device))
-                    total_loss += loss.item()
+                    total_loss += loss.item() * weight
 
             print('Number of datapoints: %d' % (len(samples)))
-            print('Accuracy %.2f' % (100 * number_right/len(samples)))
-        self.write_to_log_file("Test", problems, number_right/len(samples), total_loss/len(samples))
+            print('Accuracy %.2f' % (100 * number_right/sum(self.weights)))
+        self.write_to_log_file("Test", problems, number_right/sum(self.weights), total_loss/sum(self.weights))
 class branchDagger(Dagger):
     def __init__(self, selector, problem_dir, device, time_limit=1500, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
         super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train, num_epoch, batch_size, save_path=save_path)
@@ -477,7 +499,7 @@ class branchDagger(Dagger):
             myBranch = TreeBranch(self.model, self.policy, dataset=self.sfeature_list, train=to_train)
             self.model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
                                          priority=99999, maxdepth=-1, maxbounddist=1)
-        init_scip_params(self.model, 100, False, False, False, False, False, False)
+        personalize_scip(self.model, 100, False, False, False, False, False, False)
 
         self.model.setBoolParam("branching/vanillafullstrong/donotbranch", True)
         self.model.setBoolParam('branching/vanillafullstrong/idempotent', True)
@@ -514,7 +536,6 @@ class branchDagger(Dagger):
                 for epoch in range(self.num_epoch):
                     running_loss = 0.0
                     number_right = 0
-                    print(len(self.sfeature_list))
                     for (dgltree, branch_cand, default_gains, label_index, label) in self.sfeature_list:
                         self.optimizer.zero_grad()
                         best_values, best_in, down_scores, up_scores = self.compute(dgltree, branch_cand, default_gains, label_index)

@@ -23,6 +23,7 @@ lr = 0.05
 weight_decay = 1000000000000
 epochs = 10
 mode = sys.argv[1]
+mode = "tree"
 if mode == "tree":
     lstmFeature = TreeLSTM(x_size,
                            h_size,
