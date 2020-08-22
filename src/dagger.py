@@ -36,6 +36,11 @@ from brancher import TreeBranch
 import os
 faulthandler.enable()
 torch.set_printoptions(precision=10)
+def intersperse(lst, item):
+    result = [item] * (len(lst) * 2 - 1)
+    result[0::2] = lst
+    return result
+
 def plot_tree(g):
     # this plot requires pygraphviz package
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
@@ -48,10 +53,10 @@ def collate(samples):
     batched_graph = dgl.batch(graphs)
     return batched_graph, torch.tensor(labels), weight
 
-def collate_unweight(samples):
-    graphs, labels, _ = map(list, zip(*samples))
+def collate_undebug(samples):
+    graphs, labels, weight = map(list, zip(*samples))
     batched_graph = dgl.batch(graphs)
-    return batched_graph, torch.tensor(labels)
+    return batched_graph, torch.tensor(labels), weight
 
 def position_in_array(count, arr):
     for i in range(len(arr)):
@@ -136,7 +141,7 @@ class Dagger():
                 personalize_scip(model, 10)
                 model.optimize()
                 default.append(model.getNNodes())
-        self.write_to_log_file("Train", self.problem_dir, -1, -1, def_nodes=default)
+        self.write_to_log_file("Test", self.problem_dir, -1, -1, def_nodes=default)
 
         return num_nodes, default
 
@@ -150,9 +155,10 @@ class Dagger():
         else:
             log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f \n" % (dt_string, type, self.model_name, data_path, 100 * accuracy, loss))
         if self.listNNodes is not None and len(self.listNNodes) > 0:
-            log = log + ", NumNodes: " + ''.join([str(v) for v in self.listNNodes])
+
+            log = log + ", NumNodes: " + ''.join(intersperse([str(v) for v in self.listNNodes], ","))
         if def_nodes is not None:
-            log += ", Default: " + ''.join(def_nodes)
+            log += ", Default: " + ''.join(intersperse(def_nodes, ","))
         file_object = open('../log/log.txt', 'a')
         file_object.write(log)
         file_object.close()
@@ -322,7 +328,6 @@ class TreeDagger(Dagger):
 
         personalize_scip(self.model, 10)
         self.model.readProblem(problem)
-        self.model.setRealParam('limits/time', self.time_limit)
         self.model.optimize()
         return temp_features, step_ids, ourNodeSel
 
@@ -378,66 +383,69 @@ class TreeDagger(Dagger):
         total_num_cases = 0
         for epoch in range(self.num_repeat):
             for problem in self.problems:
-                # try:
-                print(problem)
+                try:
+                    print(problem)
 
-                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
-                self.listNNodes.append(self.model.getNNodes())
-                print(self.listNNodes)
-
-
-                if len(ourNodeSel.tree.all_nodes()) < 2:
-                    continue
-                samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_nodes=self.model.getNNodes())
-
-                if self.isScippable():
-                    continue
+                    temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                    self.listNNodes.append(self.model.getNNodes())
+                    print(self.listNNodes)
 
 
-                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-                print('Number of datapoints: %d' % (len(samples)))
-                for epoch in range(self.num_epoch):
-                    running_loss = 0.0
-                    number_right = 0
-                    total_weight = 0
-                    print("loading")
-                    for (bg, labels, weights) in s_loader:
-                        self.optimizer.zero_grad()
+                    if len(ourNodeSel.tree.all_nodes()) < 2:
+                        continue
+                    samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_nodes=self.model.getNNodes())
 
-                        unbatched, outputs = self.compute(bg)
-                        total_loss = None
-                        for i in range(len(unbatched)):
-                            output = outputs[i]
-                            label = labels[i]
-                            weight = weights[i]
-                            total_weight += weight
-                            _, indices = torch.max(output, 0)
-                            if indices.item() == label.item():
-                                number_right += 1 * weight
-                            output = output.unsqueeze(0)
-                            label = label.unsqueeze(0)
-                            loss = self.loss(output, label.to(device=self.device))
-                            if total_loss == None:
-                                total_loss = loss
-                            else:
-                                total_loss = total_loss + loss
-                            running_loss += loss.item() * weight
-                            total_weight += weight
-                        self.optimizer.zero_grad()
-                        total_loss.backward()
-                        self.optimizer.step()
-                    total_loss += running_loss
-                    average_loss += total_loss
-                    total_num_cases += len(samples)
-                    total_num_right += number_right
-                    print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
-                          (epoch + 1, running_loss / total_weight, number_right/total_weight, number_right))
-                    running_loss = 0.0
-                # except:
-                #     continue
-                if os.path.exists(self.save_path):
-                    os.remove(self.save_path)
-                torch.save(self.policy.state_dict(), self.save_path)
+                    if self.isScippable():
+                        continue
+
+
+                    s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+                    print('Number of datapoints: %d' % (len(samples)))
+                    for epoch in range(self.num_epoch):
+                        running_loss = 0.0
+                        number_right = 0
+                        total_weight = 0
+                        print("loading")
+                        for (bg, labels, weights) in s_loader:
+                            self.optimizer.zero_grad()
+
+                            unbatched, outputs = self.compute(bg)
+                            total_loss = None
+                            for i in range(len(unbatched)):
+                                output = outputs[i]
+                                label = labels[i]
+                                weight = weights[i]
+                                total_weight += weight
+                                _, indices = torch.max(output, 0)
+                                if indices.item() == label.item():
+                                    number_right += 1 * weight
+                                output = output.unsqueeze(0)
+                                label = label.unsqueeze(0)
+                                loss = self.loss(output, label.to(device=self.device))
+                                if total_loss == None:
+                                    total_loss = loss
+                                else:
+                                    total_loss = total_loss + loss
+                                running_loss += loss.item() * weight
+                                total_weight += weight
+                            self.optimizer.zero_grad()
+                            total_loss.backward()
+                            self.optimizer.step()
+                        total_loss += running_loss
+                        average_loss += total_loss
+                        total_num_cases += len(samples)
+                        total_num_right += number_right
+                        print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
+                              (epoch + 1, running_loss / total_weight, number_right/total_weight, number_right))
+                        running_loss = 0.0
+                    # except:
+                    #     continue
+                    if os.path.exists(self.save_path):
+                        os.remove(self.save_path)
+                    torch.save(self.policy.state_dict(), self.save_path)
+                except:
+                    self.write_to_log_file("Train", self.problem_dir, total_num_right / total_num_cases,
+                                           average_loss / total_num_cases)
         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
 
     def testAccuracy(self, problems):
@@ -484,6 +492,8 @@ class TreeDagger(Dagger):
             print('Number of datapoints: %d' % (len(samples)))
             print('Accuracy %.2f' % (100 * number_right/sum(self.weights)))
         self.write_to_log_file("Test", problems, number_right/sum(self.weights), total_loss/sum(self.weights))
+
+
 class branchDagger(Dagger):
     def __init__(self, selector, problem_dir, device, time_limit=1500, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
         super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train, num_epoch, batch_size, save_path=save_path)
@@ -582,3 +592,71 @@ class branchDagger(Dagger):
                       (0, running_loss / len(self.sfeature_list), number_right / len(self.sfeature_list),
                        number_right))
                 self.write_to_log_file("Test", problems, number_right / len(self.sfeature_list), running_loss / len(self.sfeature_list))
+
+class tree_offline(Dagger):
+    def __init__(self, selector, problem_dir, device, data_path, num_train=None, num_epoch=1, batch_size=5, save_path=None,
+                 num_repeat=1):
+        super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size,
+                         save_path=save_path)
+        self.data_path = data_path
+        self.model_name = "TreeOffline"
+    def compute(self, bg):
+        unbatched = dgl.unbatch(bg)
+        sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
+        g = bg
+        n = g.number_of_nodes()
+        h_size = 14
+        h = torch.zeros((n, h_size))
+        c = torch.zeros((n, h_size))
+        iou = torch.zeros((n, 3 * h_size))
+
+        outputs, _ = self.policy(g, h, c, iou)
+        outputs = size_splits(outputs, sizes)
+        return unbatched, outputs
+
+    def train(self):
+        self.dataset = pickle.load(open( self.data_path, "rb" ))
+        total_num_cases = 0
+        total_num_right = 0
+        average_loss = 0
+        s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
+        for epoch in range(self.num_epoch):
+            running_loss = 0.0
+            number_right = 0
+            total_weight = 0
+            print("loading")
+            for (bg, labels, weights) in s_loader:
+                self.optimizer.zero_grad()
+
+                unbatched, outputs = self.compute(bg)
+                total_loss = None
+                for i in range(len(unbatched)):
+                    output = outputs[i]
+                    label = labels[i]
+                    weight = weights[i]
+                    total_weight += weight
+                    _, indices = torch.max(output, 0)
+                    if indices.item() == label.item():
+                        number_right += 1 * weight
+                    output = output.unsqueeze(0)
+                    label = label.unsqueeze(0)
+                    loss = self.loss(output, label.to(device=self.device))
+                    if total_loss == None:
+                        total_loss = loss
+                    else:
+                        total_loss = total_loss + loss
+                    running_loss += loss.item() * weight
+                    total_weight += weight
+                self.optimizer.zero_grad()
+                total_loss.backward()
+                self.optimizer.step()
+            average_loss += total_loss.item()
+            total_num_cases += len(self.dataset)
+            total_num_right += number_right
+            print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
+                  (epoch + 1, running_loss / total_weight, number_right / total_weight, number_right))
+
+            if os.path.exists(self.save_path):
+                os.remove(self.save_path)
+            torch.save(self.policy.state_dict(), self.save_path)
+        self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)

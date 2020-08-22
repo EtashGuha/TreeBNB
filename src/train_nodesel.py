@@ -10,7 +10,7 @@ from brancher import TreeBranch
 import torch
 from TreeLSTM import TreeLSTMBranch
 from utilities import init_scip_params
-from dagger import branchDagger
+from dagger import branchDagger,  tree_offline
 import sys
 
 
@@ -23,7 +23,6 @@ lr = 0.05
 weight_decay = 1000000000000
 epochs = 10
 mode = sys.argv[1]
-mode = "tree"
 if mode == "tree":
     lstmFeature = TreeLSTM(x_size,
                            h_size,
@@ -46,3 +45,15 @@ elif mode == "baseline":
     my_dagger.setDescription("First Run")
 
     my_dagger.train()
+elif mode == "tree_super":
+    lstmFeature = TreeLSTM(x_size,
+                           h_size,
+                           dropout,
+                           device=device)
+    lstmFeature.to(device)
+    lstmFeature.cell.to(device)
+
+    offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, "../data/instances/setcover/100_200samples/100_200.pkl", num_repeat=1,
+                           num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
+    offline.setDescription("supervised")
+    offline.train()
