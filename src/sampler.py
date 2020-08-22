@@ -5,9 +5,12 @@ from nodeutil import getListOptimalID, checkIsOptimal
 import torch
 import glob
 import pickle
+from utilities import init_scip_params, init_scip_params_haoran, personalize_scip
+
 class Sampler():
-    def __init__(self):
+    def __init__(self, time_limit = 450):
         self.dataset = []
+        self.time_limit = time_limit
 
     def solveModel(self, problem, train=True, default=False):
         temp_features = []
@@ -15,6 +18,8 @@ class Sampler():
 
         self.nodesel = SamplerNodesel(self.model, dataset=temp_features)
         self.model.includeNodesel(self.nodesel, "nodesel", "My node selection", 999999, 999999)
+        personalize_scip(self.model, 10)
+        self.model.setRealParam('limits/time', self.time_limit)
         self.model.readProblem(problem)
         self.model.optimize()
         return temp_features
