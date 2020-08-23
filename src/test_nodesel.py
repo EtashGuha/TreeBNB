@@ -11,6 +11,7 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
 from brancher import TreeBranch
 import torch
 import sys
+from dagger import branchDagger,  tree_offline
 from utilities import init_scip_params
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # hyper parameters
@@ -51,6 +52,20 @@ elif mode == "baseline":
 
     # print(tree_vals)
     # print(def_vals)
+elif mode == "tree_super":
+    lstmFeature = TreeLSTM(x_size,
+                           h_size,
+                           dropout,
+                           device=device)
+    lstmFeature.to(device)
+    lstmFeature.cell.to(device)
+
+    offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, "../data/instances/setcover/100_200samples/100_200.pkl", num_repeat=1,
+                           num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
+    offline.setDescription("supervised")
+    tree_vals , def_vals = offline.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+    print(tree_vals)
+    print(def_vals)
 # create the model
 # lstmFeature = TreeLSTM(x_size,
 #                        h_size,

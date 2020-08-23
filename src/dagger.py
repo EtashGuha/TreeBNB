@@ -559,6 +559,7 @@ class branchDagger(Dagger):
                     average_loss += running_loss
                     total_num_cases += len(self.sfeature_list)
                     total_num_right += number_right
+                    torch.cuda.empty_cache()
                     print('[%d] loss: %.3f accuracy: %.3f number right: %d' %
                           (epoch + 1, running_loss / len(self.sfeature_list), number_right / len(self.sfeature_list), number_right))
 
@@ -593,7 +594,7 @@ class branchDagger(Dagger):
                        number_right))
                 self.write_to_log_file("Test", problems, number_right / len(self.sfeature_list), running_loss / len(self.sfeature_list))
 
-class tree_offline(Dagger):
+class tree_offline(TreeDagger):
     def __init__(self, selector, problem_dir, device, data_path, num_train=None, num_epoch=1, batch_size=5, save_path=None,
                  num_repeat=1):
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size,
@@ -612,6 +613,7 @@ class tree_offline(Dagger):
 
         outputs, _ = self.policy(g, h, c, iou)
         outputs = size_splits(outputs, sizes)
+        torch.cuda.empty_cache()
         return unbatched, outputs
 
     def train(self):
@@ -650,6 +652,7 @@ class tree_offline(Dagger):
                 self.optimizer.zero_grad()
                 total_loss.backward()
                 self.optimizer.step()
+            torch.cuda.empty_cache()
             average_loss += total_loss.item()
             total_num_cases += len(self.dataset)
             total_num_right += number_right
