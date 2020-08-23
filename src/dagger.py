@@ -598,7 +598,8 @@ class tree_offline(TreeDagger):
     def __init__(self, selector, problem_dir, device, data_path, num_train=None, num_epoch=1, batch_size=5, save_path=None,
                  num_repeat=1):
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size,
-                         save_path=save_path)
+                         )
+        self.save_path = save_path
         self.data_path = data_path
         self.model_name = "TreeOffline"
     def compute(self, bg):
