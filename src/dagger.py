@@ -149,6 +149,7 @@ class Dagger():
 
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        print(now)
         if self.description is not None:
             log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f, Description: %s\n" % (
             dt_string, type, self.model_name, data_path, 100 * accuracy, loss, self.description))
