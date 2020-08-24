@@ -151,7 +151,7 @@ class Dagger():
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         print(now)
         if self.description is not None:
-            log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f, Description: %s\n" % (
+            log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f, Description: %s" % (
             dt_string, type, self.model_name, data_path, 100 * accuracy, loss, self.description))
         else:
             log = ("%s: Type: %s, Model Name: %s, Data Path: %s, Accuracy: %.2f, Loss: %.2f \n" % (dt_string, type, self.model_name, data_path, 100 * accuracy, loss))
@@ -160,6 +160,7 @@ class Dagger():
             log = log + ", NumNodes: " + ''.join(intersperse([str(v) for v in self.listNNodes], ","))
         if def_nodes is not None:
             log += ", Default: " + ''.join(intersperse(def_nodes, ","))
+        log = log + "\n"
         file_object = open('../log/log.txt', 'a')
         file_object.write(log)
         file_object.close()

@@ -34,7 +34,10 @@ if mode == "tree":
     if os.path.exists("../lstmFeature.pt"):
         lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
     my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-    my_dagger.testAccuracy("../realsingle")
+    tree_vals, def_vals = my_dagger.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+    print(tree_vals)
+    print(def_vals)
+# create the model
 
 
 elif mode == "baseline":
@@ -59,6 +62,8 @@ elif mode == "tree_super":
                            device=device)
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
+    if os.path.exists("../lstmFeature.pt"):
+        lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
     offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, "../data/instances/setcover/100_200samples/100_200.pkl", num_repeat=1,
                            num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
