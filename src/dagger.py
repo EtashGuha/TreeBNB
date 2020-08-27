@@ -159,7 +159,7 @@ class Dagger():
 
             log = log + ", NumNodes: " + ''.join(intersperse([str(v) for v in self.listNNodes], ","))
         if def_nodes is not None:
-            log += ", Default: " + ''.join(intersperse(def_nodes, ","))
+            log += ", Default: " + ''.join(intersperse([str(v) for v in def_nodes], ","))
         log = log + "\n"
         file_object = open('../log/log.txt', 'a')
         file_object.write(log)
