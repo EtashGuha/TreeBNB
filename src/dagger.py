@@ -178,7 +178,10 @@ class Dagger():
                 print(problem)
                 self.solveModel(problem, to_train=False, default=True)
                 default.append(self.model.getNNodes())
+        self.write_to_log_file("Test", problems, -1, -1, def_nodes=default)
+
         return num_nodes, default
+
 
 
 class RankDagger(Dagger):
