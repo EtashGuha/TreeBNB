@@ -234,7 +234,8 @@ class SamplerNodesel(Nodesel):
 
         optimalNode = listOfNodes[0]
         for node in listOfNodes:
-            if node.getLowerbound() > optimalNode.getLowerbound():
+            if node.getLowerbound() < optimalNode.getLowerbound():
+                # Choose a node in dfs style, every 10 steps choose node with lowest lowerbound
                 optimalNode = node
         ids = dgltree.ndata["node_id"][(dgltree.ndata["node_id"] * dgltree.ndata["in_queue"]).nonzero()]
         self.dataset.append((dgltree, ids))

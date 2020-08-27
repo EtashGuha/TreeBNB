@@ -622,7 +622,7 @@ if __name__ == '__main__':
         lp_dirs = []
 
         # train instances
-        n_train= 200
+        n_train= 500
         for i in range(n_train):
             lp_dir = f'../data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
             if not os.path.exists(lp_dir):

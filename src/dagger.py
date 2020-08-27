@@ -174,6 +174,7 @@ class Dagger():
                 print(problem)
                 self.solveModel(problem, to_train=False)
                 num_nodes.append(self.model.getNNodes())
+                self.listNNodes = num_nodes
             for problem in real_problems:
                 print(problem)
                 self.solveModel(problem, to_train=False, default=True)
@@ -331,7 +332,7 @@ class TreeDagger(Dagger):
                 ourNodeSel = self.nodesel(self.model, self.policy)
                 self.model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
 
-        # personalize_scip(self.model, 10)
+        personalize_scip(self.model, 10)
         self.model.readProblem(problem)
         self.model.optimize()
         return temp_features, step_ids, ourNodeSel
