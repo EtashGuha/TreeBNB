@@ -335,6 +335,8 @@ class TreeDagger(Dagger):
         personalize_scip(self.model, 10)
         self.model.readProblem(problem)
         self.model.optimize()
+        torch.cuda.empty_cache()
+
         return temp_features, step_ids, ourNodeSel
 
     def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500, num_nodes=None):
