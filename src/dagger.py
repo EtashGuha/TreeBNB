@@ -381,6 +381,8 @@ class TreeDagger(Dagger):
 
         outputs, _ = self.policy(g, h, c, iou)
         outputs = size_splits(outputs, sizes)
+        torch.cuda.empty_cache()
+
         return unbatched, outputs
 
     def train(self):
