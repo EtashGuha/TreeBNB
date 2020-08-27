@@ -380,8 +380,6 @@ class TreeDagger(Dagger):
         iou = torch.zeros((n, 3 * h_size))
 
         outputs, _ = self.policy(g, h, c, iou)
-        outputs = size_splits(outputs, sizes)
-        torch.cuda.empty_cache()
 
         return unbatched, outputs
 
@@ -441,6 +439,7 @@ class TreeDagger(Dagger):
                             self.optimizer.zero_grad()
                             total_loss.backward()
                             self.optimizer.step()
+                        torch.cuda.empty_cache()
                         total_loss += running_loss
                         average_loss += total_loss
                         total_num_cases += len(samples)
