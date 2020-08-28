@@ -334,7 +334,7 @@ class TreeDagger(Dagger):
             else:
                 ourNodeSel = self.nodesel(self.model, self.policy)
                 self.model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
-
+        self.model.setRealParam('limits/time', self.time_limit)
         personalize_scip(self.model, 10)
         self.model.readProblem(problem)
         self.model.optimize()
