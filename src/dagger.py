@@ -12,6 +12,8 @@ import torch.optim as optim
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import scipy.sparse as sp
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.sparse
 import itertools
 from treelib import Tree
@@ -378,7 +380,10 @@ class TreeDagger(Dagger):
         h = torch.zeros((n, h_size))
         c = torch.zeros((n, h_size))
         iou = torch.zeros((n, 3 * h_size))
-
+        if torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+            self.policy =  nn.DataParallel(self.policy)
         outputs, _ = self.policy(g, h, c, iou)
 
         return unbatched, outputs
