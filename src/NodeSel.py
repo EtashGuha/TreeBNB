@@ -185,6 +185,7 @@ class SamplerNodesel(Nodesel):
         self.dataset = dataset
         self.tree = Tree()
         self.nodeToBounds = {}
+        self.counter = 0
     def nodeselect(self):
         listOfNodes = list(itertools.chain.from_iterable(self.model.getOpenNodes()))
         if len(listOfNodes) == 0:
@@ -232,11 +233,23 @@ class SamplerNodesel(Nodesel):
         dgltree = dgl.DGLGraph()
         dgltree.from_networkx(g, node_attrs=["feature", "node_id", "in_queue"])
 
-        optimalNode = listOfNodes[0]
-        for node in listOfNodes:
-            if node.getLowerbound() < optimalNode.getLowerbound():
-                # Choose a node in dfs style, every 10 steps choose node with lowest lowerbound
-                optimalNode = node
+        if self.counter % 10 == 0:
+
+            optimalNode = listOfNodes[0]
+
+            for node in listOfNodes:
+
+                if node.getLowerbound() < optimalNode.getLowerbound():
+                    # Choose a node in dfs style, every 10 steps choose node with lowest lowerbound
+                    optimalNode = node
+        else:
+            if self.model.getChild() is not None:
+                optimalNode = self.model.getBestChild()
+            elif self.model.getSibling() is not None:
+                optimalNode = self.model.getBestSibling()
+            else:
+                optimalNode = self.model.getBestLeaf()
+
         ids = dgltree.ndata["node_id"][(dgltree.ndata["node_id"] * dgltree.ndata["in_queue"]).nonzero()]
         self.dataset.append((dgltree, ids))
         return {"selnode": optimalNode }
@@ -251,4 +264,4 @@ class SamplerNodesel(Nodesel):
         value = 0, if both nodes are equally good
         value > 0, if node 1 comes after (is worse than) node 2.
         '''
-        return node2.getLowerbound() - node1.getLowerbound()
+        return -1 * (node2.getLowerbound() - node1.getLowerbound())
