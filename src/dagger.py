@@ -414,6 +414,8 @@ class TreeDagger(Dagger):
         for epoch in range(self.num_repeat):
             chunks = [self.problems[x:x + self.chunk_size] for x in range(0, len(self.problems), self.chunk_size)]
             for chunk in chunks:
+                self.policy.to("cpu")
+                self.policy.device = "cpu"
                 samples = []
                 return_queue = mp.Queue()
                 processes = []
