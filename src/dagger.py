@@ -405,6 +405,14 @@ class TreeDagger(Dagger):
         for i in samples:
             return_queue.put(i)
 
+    def switch_device(self, device=None):
+        if device is None:
+            device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        else:
+            device = torch.device(device)
+        self.policy.to(device)
+        self.policy.cell.to(device)
+        self.policy.device = device
     def train(self):
         self.policy.train()
         counter = 0
@@ -414,13 +422,11 @@ class TreeDagger(Dagger):
         for epoch in range(self.num_repeat):
             chunks = [self.problems[x:x + self.chunk_size] for x in range(0, len(self.problems), self.chunk_size)]
             for chunk in chunks:
-                self.policy.to("cpu")
-                self.policy.device = "cpu"
+                self.switch_device(device="cpu")
                 samples = []
                 return_queue = mp.Queue()
                 processes = []
                 for problem in chunk:
-
                     p = mp.Process(target=self.sample, args=(problem, return_queue))
                     p.start()
                     processes.append(p)
@@ -430,6 +436,7 @@ class TreeDagger(Dagger):
                     samples.append(return_queue.get())
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
                 print('Number of datapoints: %d' % (len(samples)))
+                self.switch_device()
                 for epoch in range(self.num_epoch):
                     running_loss = 0.0
                     number_right = 0
