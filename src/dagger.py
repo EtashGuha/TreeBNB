@@ -12,12 +12,12 @@ import torch.optim as optim
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import scipy.sparse as sp
-import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.sparse
 import itertools
 from treelib import Tree
 import networkx as nx
+import torch.multiprocessing as mp
 import dgl
 import torch.nn as nn
 import copy
@@ -318,6 +318,7 @@ class TreeDagger(Dagger):
         self.time_limit = 600
         self.model_name = "TreeDagger"
         self.weights = []
+        self.chunk_size = 4
 
 
     def solveModel(self, problem, default=False, to_train=True):
@@ -387,6 +388,18 @@ class TreeDagger(Dagger):
         outputs, _ = self.policy(g, h, c, iou)
 
         return unbatched, outputs
+    def sample(self, problem, return_queue):
+        print(problem)
+
+        temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+        self.listNNodes.append(self.model.getNNodes())
+        print(self.listNNodes)
+
+        if len(ourNodeSel.tree.all_nodes()) < 2:
+            return
+        samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_nodes=self.model.getNNodes())
+        for i in samples:
+            return_queue.put(i)
 
     def train(self):
         self.policy.train()
@@ -395,71 +408,66 @@ class TreeDagger(Dagger):
         total_num_right = 0
         total_num_cases = 0
         for epoch in range(self.num_repeat):
-            for problem in self.problems:
-                try:
-                    print(problem)
+            chunks = [self.problems[x:x + self.chunk_size] for x in range(0, len(self.problems), self.chunk_size)]
+            for chunk in chunks:
+                samples = []
+                return_queue = mp.Queue()
+                processes = []
+                for problem in chunk:
 
-                    temp_features, step_ids, ourNodeSel = self.solveModel(problem)
-                    self.listNNodes.append(self.model.getNNodes())
-                    print(self.listNNodes)
+                    p = mp.Process(target=self.sample, args=(problem, return_queue))
+                    p.start()
+                    processes.append(p)
+                for p in processes:
+                    p.join()
+                while not return_queue.empty():
+                    samples.append(return_queue.get())
+                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+                print('Number of datapoints: %d' % (len(samples)))
+                for epoch in range(self.num_epoch):
+                    running_loss = 0.0
+                    number_right = 0
+                    total_weight = 0
+                    print("loading")
+                    for (bg, labels, weights) in s_loader:
+                        self.optimizer.zero_grad()
 
+                        unbatched, outputs = self.compute(bg)
+                        total_loss = None
+                        for i in range(len(unbatched)):
+                            output = outputs[i]
+                            label = labels[i]
+                            weight = weights[i]
+                            total_weight += weight
+                            _, indices = torch.max(output, 0)
+                            if indices.item() == label.item():
+                                number_right += 1 * weight
+                            output = output.unsqueeze(0)
+                            label = label.unsqueeze(0)
+                            loss = self.loss(output, label.to(device=self.device))
+                            if total_loss == None:
+                                total_loss = loss
+                            else:
+                                total_loss = total_loss + loss
+                            running_loss += loss.item() * weight
+                            total_weight += weight
+                        self.optimizer.zero_grad()
+                        total_loss.backward()
+                        self.optimizer.step()
+                    torch.cuda.empty_cache()
+                    total_loss += running_loss
+                    average_loss += total_loss
+                    total_num_cases += len(samples)
+                    total_num_right += number_right
+                    print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
+                          (epoch + 1, running_loss / total_weight, number_right/total_weight, number_right))
+                    running_loss = 0.0
+                # except:
+                #     continue
+                if os.path.exists(self.save_path):
+                    os.remove(self.save_path)
+                torch.save(self.policy.state_dict(), self.save_path)
 
-                    if len(ourNodeSel.tree.all_nodes()) < 2:
-                        continue
-                    samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_nodes=self.model.getNNodes())
-
-                    if self.isScippable():
-                        continue
-
-
-                    s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-                    print('Number of datapoints: %d' % (len(samples)))
-                    for epoch in range(self.num_epoch):
-                        running_loss = 0.0
-                        number_right = 0
-                        total_weight = 0
-                        print("loading")
-                        for (bg, labels, weights) in s_loader:
-                            self.optimizer.zero_grad()
-
-                            unbatched, outputs = self.compute(bg)
-                            total_loss = None
-                            for i in range(len(unbatched)):
-                                output = outputs[i]
-                                label = labels[i]
-                                weight = weights[i]
-                                total_weight += weight
-                                _, indices = torch.max(output, 0)
-                                if indices.item() == label.item():
-                                    number_right += 1 * weight
-                                output = output.unsqueeze(0)
-                                label = label.unsqueeze(0)
-                                loss = self.loss(output, label.to(device=self.device))
-                                if total_loss == None:
-                                    total_loss = loss
-                                else:
-                                    total_loss = total_loss + loss
-                                running_loss += loss.item() * weight
-                                total_weight += weight
-                            self.optimizer.zero_grad()
-                            total_loss.backward()
-                            self.optimizer.step()
-                        torch.cuda.empty_cache()
-                        total_loss += running_loss
-                        average_loss += total_loss
-                        total_num_cases += len(samples)
-                        total_num_right += number_right
-                        print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
-                              (epoch + 1, running_loss / total_weight, number_right/total_weight, number_right))
-                        running_loss = 0.0
-                    # except:
-                    #     continue
-                    if os.path.exists(self.save_path):
-                        os.remove(self.save_path)
-                    torch.save(self.policy.state_dict(), self.save_path)
-                except:
-                    self.write_to_log_file("Train", self.problem_dir, total_num_right / total_num_cases,
-                                           average_loss / total_num_cases)
         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
 
     def testAccuracy(self, problems):
