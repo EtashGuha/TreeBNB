@@ -18,10 +18,6 @@ import itertools
 from treelib import Tree
 import networkx as nx
 import torch.multiprocessing as mp
-try:
-     mp.set_start_method('spawn')
-except RuntimeError:
-    pass
 import dgl
 import torch.nn as nn
 import copy
