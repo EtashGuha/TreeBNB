@@ -318,7 +318,7 @@ class TreeDagger(Dagger):
         self.time_limit = 600
         self.model_name = "TreeDagger"
         self.weights = []
-        self.chunk_size = 10
+        self.chunk_size = 2
 
 
     def solveModel(self, problem, default=False, to_train=True):
