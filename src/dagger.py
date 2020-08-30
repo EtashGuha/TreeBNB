@@ -432,7 +432,7 @@ class TreeDagger(Dagger):
                     samples.append(return_queue.get())
                 if len(samples) == 0:
                     continue
-                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, num_workers=int(self.chunk_size), collate_fn=collate)
                 print('Number of datapoints: %d' % (len(samples)))
                 self.switch_device()
                 for epoch in range(self.num_epoch):
