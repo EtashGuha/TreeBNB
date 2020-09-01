@@ -53,11 +53,11 @@ class Sampler():
                         weight = 1/len(dgl_tree)
                         self.dataset.append((dgl_tree, oracle_val, weight))
 
-            with open("../data/instances/setcover/100_200samples/100_200.pkl", "wb") as f:
+            with open("../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se/sample.pkl", "wb") as f:
                 pickle.dump(self.dataset, f)
 
 if __name__ == "__main__":
     sampler = Sampler()
-    sampler.collect("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+    sampler.collect("../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se")
 
 

@@ -124,28 +124,35 @@ class Dagger():
         with torch.no_grad():
             real_problems = glob.glob(problems + "/*.lp")
             num_nodes = []
+            solving_times_us = []
+            solving_times_def = []
             default = []
             for problem in real_problems:
                 print(problem)
                 model = Model("setcover")
                 ourNodeSel = MyNodesel(model, self.policy)
                 model.readProblem(problem)
+                model.setIntParam('timing/clocktype', 2)
                 model.setRealParam('limits/time', self.time_limit)
                 model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
                 personalize_scip(model, 10)
                 model.optimize()
+                solving_times_us.append(model.getSolvingTime())
                 num_nodes.append(model.getNNodes())
             for problem in real_problems:
                 print(problem)
                 model = Model("setcover")
+                model.setIntParam('timing/clocktype', 2)
                 model.setRealParam('limits/time', self.time_limit)
                 model.readProblem(problem)
                 personalize_scip(model, 10)
                 model.optimize()
                 default.append(model.getNNodes())
+                solving_times_def.append(model.getSolvingTime())
+
         self.write_to_log_file("Test", self.problem_dir, -1, -1, def_nodes=default)
 
-        return num_nodes, default
+        return num_nodes, default, solving_times_us, solving_times_def
 
     def write_to_log_file(self, type, data_path, accuracy, loss, def_nodes=None):
 

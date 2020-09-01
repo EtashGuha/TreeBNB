@@ -65,6 +65,7 @@ elif mode == "tree_super":
     if os.path.exists("../lstmFeature.pt"):
         lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
+
     offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, "../data/instances/setcover/100_200samples/100_200.pkl", num_repeat=1,
                            num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
     offline.setDescription("supervised")
