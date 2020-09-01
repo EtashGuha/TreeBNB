@@ -590,8 +590,8 @@ if __name__ == '__main__':
 
         # test instances
         n = 100
-        nrows = 100
-        ncols = 200
+        nrows = 500
+        ncols = 1000
         lp_dir = f'../data/instances/setcover/test_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
         print(f"{n} instances in {lp_dir}")
         if not os.path.exists(lp_dir):
