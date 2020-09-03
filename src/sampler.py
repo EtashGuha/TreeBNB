@@ -11,7 +11,6 @@ class Sampler():
     def __init__(self, time_limit = 450):
         self.dataset = []
         self.time_limit = time_limit
-        self.count
     def solveModel(self, problem, train=True, default=False):
         temp_features = []
         self.model = Model("setcover")
