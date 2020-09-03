@@ -123,9 +123,9 @@ class rankSampler():
             total_samples = []
 
 if __name__ == "__main__":
-    # sampler = Sampler()
-    #
-    # sampler.collect("../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se")
-    rank_sampler = rankSampler()
-    rank_sampler.collect("../realsingle")
+    sampler = Sampler()
+
+    sampler.collect("../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se")
+    # rank_sampler = rankSampler()
+    # rank_sampler.collect("../realsingle")
 
