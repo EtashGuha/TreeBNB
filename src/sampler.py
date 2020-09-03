@@ -11,7 +11,7 @@ class Sampler():
     def __init__(self, time_limit = 450):
         self.dataset = []
         self.time_limit = time_limit
-
+        self.count
     def solveModel(self, problem, train=True, default=False):
         temp_features = []
         self.model = Model("setcover")
@@ -52,10 +52,14 @@ class Sampler():
                         oracle_val = (step_ids== optimal_id).type(torch.uint8).nonzero()[0][0]
                         weight = 1/len(dgl_tree)
                         self.dataset.append((dgl_tree, oracle_val, weight))
-
-            with open("../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se/sample.pkl", "wb") as f:
-                pickle.dump(self.dataset, f)
-
+            total_dataset = []
+            if os.path.exists(problem_dir + "/sample_check.pkl"):
+                with open(problem_dir + "/sample_check.pkl", "wb") as f:
+                    total_dataset = pickle.load(f)
+            total_dataset.extend(self.dataset)
+            with open(problem_dir + "/sample_check.pkl", "wb") as f:
+                pickle.dump(total_dataset, f)
+            self.dataset = []
 
 class rankSampler():
     def __init__(self, time_limit=450):
