@@ -53,7 +53,7 @@ class Sampler():
                         self.dataset.append((dgl_tree, oracle_val, weight))
             total_dataset = []
             if os.path.exists(problem_dir + "/sample_check.pkl"):
-                with open(problem_dir + "/sample_check.pkl", "wb") as f:
+                with open(problem_dir + "/sample_check.pkl", "rb") as f:
                     total_dataset = pickle.load(f)
             total_dataset.extend(self.dataset)
             with open(problem_dir + "/sample_check.pkl", "wb") as f:
