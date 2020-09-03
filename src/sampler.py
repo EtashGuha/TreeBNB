@@ -11,6 +11,7 @@ class Sampler():
     def __init__(self, time_limit = 450):
         self.dataset = []
         self.time_limit = time_limit
+        self.problem_list = []
     def solveModel(self, problem, train=True, default=False):
         temp_features = []
         self.model = Model("setcover")
@@ -26,8 +27,10 @@ class Sampler():
     def collect(self, problem_dir):
         problems = glob.glob(problem_dir + "/*.lp")
         for problem in problems:
+            self.problem_list.append(problem)
+            print(self.problem_list)
             temp_features = self.solveModel(problem)
-
+            print(self.problem_list)
             optimal_node = None
             for node in self.nodesel.tree.leaves():
                 if checkIsOptimal(node, self.model, self.nodesel.tree):
@@ -52,6 +55,7 @@ class Sampler():
                         weight = 1/len(dgl_tree)
                         self.dataset.append((dgl_tree, oracle_val, weight))
             total_dataset = []
+
             if os.path.exists(problem_dir + "/sample_check.pkl"):
                 with open(problem_dir + "/sample_check.pkl", "rb") as f:
                     total_dataset = pickle.load(f)
