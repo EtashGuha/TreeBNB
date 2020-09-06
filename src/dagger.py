@@ -749,7 +749,11 @@ class tree_offline(TreeDagger):
                 self.dataset = pickle.load(open( sample, "rb" ))
                 if len(self.dataset) == 0:
                     continue
-                s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
+                try:
+                    s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
+                except:
+                    continue
+                print("working maybe")
                 for (bg, labels, weights) in s_loader:
                     self.optimizer.zero_grad()
 
