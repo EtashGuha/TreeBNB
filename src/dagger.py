@@ -731,7 +731,8 @@ class tree_offline(TreeDagger):
         return unbatched, outputs
 
     def train(self):
-        self.dataset = pickle.load(open( self.data_path, "rb" ))
+
+
         total_num_cases = 0
         total_num_right = 0
         average_loss = 0
@@ -741,38 +742,42 @@ class tree_offline(TreeDagger):
             number_right = 0
             total_weight = 0
             print("loading")
-            for (bg, labels, weights) in s_loader:
-                self.optimizer.zero_grad()
 
-                unbatched, outputs = self.compute(bg)
-                total_loss = None
-                for i in range(len(unbatched)):
-                    output = outputs[i]
-                    label = labels[i]
-                    weight = weights[i]
-                    total_weight += weight
-                    _, indices = torch.max(output, 0)
-                    if indices.item() == label.item():
-                        number_right += 1 * weight
-                    output = output.unsqueeze(0)
-                    label = label.unsqueeze(0)
-                    loss = self.loss(output, label.to(device=self.device))
-                    if total_loss == None:
-                        total_loss = loss
-                    else:
-                        total_loss = total_loss + loss
-                    running_loss += loss.item() * weight
-                    total_weight += weight
-                self.optimizer.zero_grad()
-                total_loss.backward()
-                self.optimizer.step()
-            torch.cuda.empty_cache()
-            average_loss += total_loss.item()
-            total_num_cases += len(self.dataset)
-            total_num_right += number_right
+            pickles = glob.glob(self.data_path + "/*.pkl")
+            for sample in pickles:
+                self.dataset = pickle.load(open( sample, "rb" ))
+                s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
+                for (bg, labels, weights) in s_loader:
+                    self.optimizer.zero_grad()
+
+                    unbatched, outputs = self.compute(bg)
+                    total_loss = None
+                    for i in range(len(unbatched)):
+                        output = outputs[i]
+                        label = labels[i]
+                        weight = weights[i]
+                        total_weight += weight
+                        _, indices = torch.max(output, 0)
+                        if indices.item() == label.item():
+                            number_right += 1 * weight
+                        output = output.unsqueeze(0)
+                        label = label.unsqueeze(0)
+                        loss = self.loss(output, label.to(device=self.device))
+                        if total_loss == None:
+                            total_loss = loss
+                        else:
+                            total_loss = total_loss + loss
+                        running_loss += loss.item() * weight
+                        total_weight += weight
+                    self.optimizer.zero_grad()
+                    total_loss.backward()
+                    self.optimizer.step()
+                torch.cuda.empty_cache()
+                average_loss += total_loss.item()
+                total_num_cases += len(self.dataset)
+                total_num_right += number_right
             print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
-                  (epoch + 1, running_loss / total_weight, number_right / total_weight, number_right))
-
+                      (epoch + 1, running_loss / total_weight, number_right / total_weight, number_right))
             if os.path.exists(self.save_path):
                 os.remove(self.save_path)
             torch.save(self.policy.state_dict(), self.save_path)
