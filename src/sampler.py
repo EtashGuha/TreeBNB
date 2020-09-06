@@ -56,12 +56,12 @@ class Sampler():
                         self.dataset.append((dgl_tree, oracle_val, weight))
             total_dataset = []
 
-            if os.path.exists(problem_dir + "/sample_check.pkl"):
-                with open(problem_dir + "/sample_check.pkl", "rb") as f:
-                    total_dataset = pickle.load(f)
-            total_dataset.extend(self.dataset)
-            with open(problem_dir + "/sample_check.pkl", "wb") as f:
-                pickle.dump(total_dataset, f)
+            # if os.path.exists(problem_dir + "/sample_check" + problem.replace('.lp', "") + ".pkl"):
+            #     with open(problem_dir + "/sample_check" + problem.replace('.lp', "") + ".pkl") as f:
+            #         total_dataset = pickle.load(f)
+            # total_dataset.extend(self.dataset)
+            with open(problem_dir + "/sample_check" + problem.replace('.lp', "") + ".pkl", "wb") as f:
+                pickle.dump(self.dataset, f)
             self.dataset = []
 
 class rankSampler():
