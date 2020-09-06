@@ -669,7 +669,6 @@ class tree_offline(TreeDagger):
             number_right = 0
             total_weight = 0
             print("loading")
-            for pickle
             for (bg, labels, weights) in s_loader:
                 self.optimizer.zero_grad()
 
