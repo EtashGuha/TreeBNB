@@ -60,7 +60,7 @@ class Sampler():
             #     with open(problem_dir + "/sample_check" + problem.replace('.lp', "") + ".pkl") as f:
             #         total_dataset = pickle.load(f)
             # total_dataset.extend(self.dataset)
-            with open(problem_dir + "/sample_check" + problem.replace('.lp', "") + ".pkl", "wb") as f:
+            with open(problem_dir + "/sample_check" + os.path.basename(problem).replace('.lp', "") + ".pkl", "wb") as f:
                 pickle.dump(self.dataset, f)
             self.dataset = []
 
