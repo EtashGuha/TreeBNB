@@ -744,6 +744,7 @@ class tree_offline(TreeDagger):
             print("loading")
 
             pickles = glob.glob(self.data_path + "/*.pkl")
+            print(pickles)
             for sample in pickles:
                 self.dataset = pickle.load(open( sample, "rb" ))
                 s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
