@@ -659,7 +659,7 @@ class tree_offline(TreeDagger):
         return unbatched, outputs
 
     def train(self):
-        self.dataset = pickle.load(open( self.data_path, "rb" ))
+        self.dataset = pickle.load(open( self.data_path, "rb"))
         total_num_cases = 0
         total_num_right = 0
         average_loss = 0
@@ -669,6 +669,7 @@ class tree_offline(TreeDagger):
             number_right = 0
             total_weight = 0
             print("loading")
+            for pickle
             for (bg, labels, weights) in s_loader:
                 self.optimizer.zero_grad()
 
@@ -736,7 +737,7 @@ class tree_offline(TreeDagger):
         total_num_cases = 0
         total_num_right = 0
         average_loss = 0
-        s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
+        # s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
         for epoch in range(self.num_epoch):
             running_loss = 0.0
             number_right = 0
