@@ -85,6 +85,7 @@ class TreeLSTM(nn.Module):
             The prediction of each node.
         """
         # feed embedding
+        g.to(self.device)
         features = g.ndata["feature"]
         features = features.to(device=self.device)
         g.ndata['Wx'] = self.cell.W_iou(features)
@@ -92,7 +93,6 @@ class TreeLSTM(nn.Module):
         g.ndata["iou"] = iou
         g.ndata['h'] = h
         g.ndata['c'] = c
-        g.to(self.device)
         # propagate
         dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
         dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
@@ -171,6 +171,7 @@ class TreeLSTMBranch(nn.Module):
         """
 
         # feed embedding
+        g.to(self.device)
         features = g.ndata["feature"]
         features = features.to(device=self.device)
         g.ndata['Wx'] = self.cell.W_iou(features)
@@ -178,7 +179,6 @@ class TreeLSTMBranch(nn.Module):
         g.ndata["iou"] = iou
         g.ndata['h'] = h
         g.ndata['c'] = c
-        g.to(self.device)
         # propagate
         dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
         dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
