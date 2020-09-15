@@ -86,6 +86,7 @@ class TreeLSTM(nn.Module):
         """
         # feed embedding
         g.to(self.device)
+        g.to(torch.device("cuda:0"))
         print(g.device)
         features = g.ndata["feature"]
         features = features.to(device=self.device)
