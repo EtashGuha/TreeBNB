@@ -52,14 +52,12 @@ class Sampler():
                             break
                     if queue_contains_optimal:
                         oracle_val = (step_ids== optimal_id).type(torch.uint8).nonzero()[0][0]
-                        weight = 1/len(dgl_tree)
-                        self.dataset.append((dgl_tree, oracle_val, weight))
+                        self.dataset.append((dgl_tree, oracle_val, 0))
             total_dataset = []
-
-            # if os.path.exists(problem_dir + "/sample_check" + problem.replace('.lp', "") + ".pkl"):
-            #     with open(problem_dir + "/sample_check" + problem.replace('.lp', "") + ".pkl") as f:
-            #         total_dataset = pickle.load(f)
-            # total_dataset.extend(self.dataset)
+            for i in range(len(self.dataset)):
+                temp = list(self.dataset[i])
+                temp[2] = 1/len(self.dataset)
+                self.dataset[i] = tuple(temp)
             with open(problem_dir + "/sample_check" + os.path.basename(problem).replace('.lp', "") + ".pkl", "wb") as f:
                 pickle.dump(self.dataset, f)
             self.dataset = []
@@ -132,7 +130,7 @@ class rankSampler():
 if __name__ == "__main__":
     sampler = Sampler()
 
-    sampler.collect("../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se")
+    sampler.collect("../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se")
     # rank_sampler = rankSampler()
     # rank_sampler.collect("../realsingle")
 

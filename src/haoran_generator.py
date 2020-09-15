@@ -531,7 +531,7 @@ if __name__ == '__main__':
         denss = []
 
         # train instances
-        n = 1000
+        n = 10
         lp_dir = f'../data/instances/setcover/train_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
         print(f"{n} instances in {lp_dir}")
         if not os.path.exists(lp_dir):
@@ -542,7 +542,7 @@ if __name__ == '__main__':
         denss.extend([dens] * n)
 
         # validation instances
-        n = 200
+        n = 3
         lp_dir = f'../data/instances/setcover/valid_{nrows}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se'
         print(f"{n} instances in {lp_dir}")
         if not os.path.exists(lp_dir):

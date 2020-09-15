@@ -87,7 +87,6 @@ def size_splits(tensor, split_sizes, dim=0):
 
 class Dagger():
     def __init__(self, selector, problem_dir, device, loss, num_train=None, num_epoch = 3, num_repeat=1, batch_size=5, save_path=None):
-        print(num_repeat)
         self.policy = selector
         self.save_path = save_path
         self.problem_dir = problem_dir
@@ -318,13 +317,11 @@ class RankDagger(Dagger):
         self.write_to_log_file("Test", problems, total_num_right/total_num_cases, running_loss / len(s_loader))
 class TreeDagger(Dagger):
     def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
-        print(num_repeat)
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path)
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
         self.time_limit = 60
         self.model_name = "TreeDagger"
-        self.weights = []
         self.chunk_size = 2
 
 
@@ -634,15 +631,87 @@ class branchDagger(Dagger):
                        number_right))
                 self.write_to_log_file("Test", problems, number_right / len(self.sfeature_list), running_loss / len(self.sfeature_list))
 
+# class tree_offline(TreeDagger):
+#     def __init__(self, selector, problem_dir, device, data_path, num_train=None, num_epoch=1, batch_size=5, save_path=None,
+#                  num_repeat=1):
+#         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size,
+#                          )
+#         self.num_epoch = num_epoch
+#         self.save_path = save_path
+#         self.data_path = data_path
+#         self.model_name = "TreeOffline"
+#     def compute(self, bg):
+#         unbatched = dgl.unbatch(bg)
+#         sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
+#         g = bg
+#         n = g.number_of_nodes()
+#         h_size = 14
+#         h = torch.zeros((n, h_size))
+#         c = torch.zeros((n, h_size))
+#         iou = torch.zeros((n, 3 * h_size))
+#
+#         outputs, _ = self.policy(g, h, c, iou)
+#         outputs = size_splits(outputs, sizes)
+#         torch.cuda.empty_cache()
+#         return unbatched, outputs
+#
+#     def train(self):
+#         self.dataset = pickle.load(open( self.data_path, "rb"))
+#         total_num_cases = 0
+#         total_num_right = 0
+#         average_loss = 0
+#         s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
+#         for epoch in range(self.num_epoch):
+#             running_loss = 0.0
+#             number_right = 0
+#             total_weight = 0
+#             for (bg, labels, weights) in s_loader:
+#                 self.optimizer.zero_grad()
+#
+#                 unbatched, outputs = self.compute(bg)
+#                 total_loss = None
+#                 for i in range(len(unbatched)):
+#                     output = outputs[i]
+#                     label = labels[i]
+#                     weight = weights[i]
+#                     total_weight += weight
+#                     _, indices = torch.max(output, 0)
+#                     if indices.item() == label.item():
+#                         number_right += 1 * weight
+#                     output = output.unsqueeze(0)
+#                     label = label.unsqueeze(0)
+#                     loss = self.loss(output, label.to(device=self.device))
+#                     if total_loss == None:
+#                         total_loss = loss
+#                     else:
+#                         total_loss = total_loss + loss
+#                     running_loss += loss.item() * weight
+#                     total_weight += weight
+#                 self.optimizer.zero_grad()
+#                 total_loss.backward()
+#                 self.optimizer.step()
+#             torch.cuda.empty_cache()
+#             average_loss += total_loss.item()
+#             total_num_cases += len(self.dataset)
+#             total_num_right += number_right
+#             print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
+#                   (epoch + 1, running_loss / total_weight, number_right / total_weight, number_right))
+#
+#             if os.path.exists(self.save_path):
+#                 os.remove(self.save_path)
+#             torch.save(self.policy.state_dict(), self.save_path)
+#         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
+
 class tree_offline(TreeDagger):
-    def __init__(self, selector, problem_dir, device, data_path, num_train=None, num_epoch=1, batch_size=5, save_path=None,
-                 num_repeat=1):
+    def __init__(self, selector, problem_dir, device, data_path, val_dir, num_train=None, num_epoch=1, batch_size=5, save_path=None,
+                 num_repeat=1, ):
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size,
                          )
         self.num_epoch = num_epoch
         self.save_path = save_path
         self.data_path = data_path
         self.model_name = "TreeOffline"
+        self.val_dir = val_dir
     def compute(self, bg):
         unbatched = dgl.unbatch(bg)
         sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
@@ -659,80 +728,6 @@ class tree_offline(TreeDagger):
         return unbatched, outputs
 
     def train(self):
-        self.dataset = pickle.load(open( self.data_path, "rb"))
-        total_num_cases = 0
-        total_num_right = 0
-        average_loss = 0
-        s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
-        for epoch in range(self.num_epoch):
-            running_loss = 0.0
-            number_right = 0
-            total_weight = 0
-            print("loading")
-            for (bg, labels, weights) in s_loader:
-                self.optimizer.zero_grad()
-
-                unbatched, outputs = self.compute(bg)
-                total_loss = None
-                for i in range(len(unbatched)):
-                    output = outputs[i]
-                    label = labels[i]
-                    weight = weights[i]
-                    total_weight += weight
-                    _, indices = torch.max(output, 0)
-                    if indices.item() == label.item():
-                        number_right += 1 * weight
-                    output = output.unsqueeze(0)
-                    label = label.unsqueeze(0)
-                    loss = self.loss(output, label.to(device=self.device))
-                    if total_loss == None:
-                        total_loss = loss
-                    else:
-                        total_loss = total_loss + loss
-                    running_loss += loss.item() * weight
-                    total_weight += weight
-                self.optimizer.zero_grad()
-                total_loss.backward()
-                self.optimizer.step()
-            torch.cuda.empty_cache()
-            average_loss += total_loss.item()
-            total_num_cases += len(self.dataset)
-            total_num_right += number_right
-            print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
-                  (epoch + 1, running_loss / total_weight, number_right / total_weight, number_right))
-
-            if os.path.exists(self.save_path):
-                os.remove(self.save_path)
-            torch.save(self.policy.state_dict(), self.save_path)
-        self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
-
-class tree_offline(TreeDagger):
-    def __init__(self, selector, problem_dir, device, data_path, num_train=None, num_epoch=1, batch_size=5, save_path=None,
-                 num_repeat=1):
-        super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size,
-                         )
-        self.num_epoch = num_epoch
-        self.save_path = save_path
-        self.data_path = data_path
-        self.model_name = "TreeOffline"
-    def compute(self, bg):
-        unbatched = dgl.unbatch(bg)
-        sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
-        g = bg
-        n = g.number_of_nodes()
-        h_size = 14
-        h = torch.zeros((n, h_size))
-        c = torch.zeros((n, h_size))
-        iou = torch.zeros((n, 3 * h_size))
-
-        outputs, _ = self.policy(g, h, c, iou)
-        outputs = size_splits(outputs, sizes)
-        torch.cuda.empty_cache()
-        return unbatched, outputs
-
-    def train(self):
-
-
         total_num_cases = 0
         total_num_right = 0
         average_loss = 0
@@ -741,10 +736,7 @@ class tree_offline(TreeDagger):
             running_loss = 0.0
             number_right = 0
             total_weight = 0
-            print("loading")
-
-            pickles = glob.glob(self.data_path + "/*.pkl")
-            print(pickles)
+            pickles = glob.glob(self.problem_dir + "/*.pkl")
             for sample in pickles:
                 self.dataset = pickle.load(open( sample, "rb" ))
                 if len(self.dataset) == 0:
@@ -753,7 +745,7 @@ class tree_offline(TreeDagger):
                     s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True, collate_fn=collate_undebug)
                 except:
                     continue
-                print("working maybe")
+
                 for (bg, labels, weights) in s_loader:
                     self.optimizer.zero_grad()
 
@@ -774,7 +766,7 @@ class tree_offline(TreeDagger):
                             total_loss = loss
                         else:
                             total_loss = total_loss + loss
-                        running_loss += loss.item() * weight
+                        running_loss += loss.item()
                         total_weight += weight
                     self.optimizer.zero_grad()
                     total_loss.backward()
@@ -783,13 +775,43 @@ class tree_offline(TreeDagger):
                 average_loss += total_loss.item()
                 total_num_cases += len(self.dataset)
                 total_num_right += number_right
+            val_accuracy = self.validate()
             print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
-                      (epoch + 1, running_loss / total_weight, number_right / total_weight, number_right))
+                      (epoch + 1, running_loss/total_num_cases, val_accuracy, number_right))
             if os.path.exists(self.save_path):
                 os.remove(self.save_path)
             torch.save(self.policy.state_dict(), self.save_path)
-        self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
 
+        self.write_to_log_file("Train", self.problem_dir, val_accuracy, average_loss/total_num_cases)
+
+    def validate(self):
+        pickles = glob.glob(self.val_dir + "/*.pkl")
+        number_right = 0
+        total_weight = 0
+        for sample in pickles:
+            self.dataset = pickle.load(open(sample, "rb"))
+            if len(self.dataset) == 0:
+                continue
+            try:
+                s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True,
+                                      collate_fn=collate_undebug)
+            except:
+                continue
+            for (bg, labels, weights) in s_loader:
+                self.optimizer.zero_grad()
+                unbatched, outputs = self.compute(bg)
+                total_loss = None
+                for i in range(len(unbatched)):
+                    output = outputs[i]
+                    label = labels[i]
+                    weight = weights[i]
+                    total_weight += weight
+                    _, indices = torch.max(output, 0)
+                    if indices.item() == label.item():
+                        number_right += 1 * weight
+                    total_weight += weight
+            torch.cuda.empty_cache()
+        return number_right/total_weight
 class rankOffline(RankDagger):
     def __init__(self, selector, problem_dir, device, num_train=None, num_epoch=7, time_limit=200, save_path=None, num_repeat=1):
         super().__init__(selector, problem_dir, device, num_train=num_train, num_epoch=num_epoch, save_path=save_path, num_repeat=num_repeat)
@@ -824,3 +846,4 @@ class rankOffline(RankDagger):
             os.remove(self.save_path)
         torch.save(self.policy.state_dict(), self.save_path)
         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_predict, average_loss/total_num_cases)
+
