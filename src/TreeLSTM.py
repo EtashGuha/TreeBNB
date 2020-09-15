@@ -86,9 +86,11 @@ class TreeLSTM(nn.Module):
         """
         # feed embedding
         g.to(self.device)
-        print(self.device)
+        print(g.device)
         features = g.ndata["feature"]
         features = features.to(device=self.device)
+        print(self.cell.W_iou(features).device)
+
         g.ndata['Wx'] = self.cell.W_iou(features)
         g.ndata["Wfx"] = self.cell.W_f(features)
         g.ndata["iou"] = iou
