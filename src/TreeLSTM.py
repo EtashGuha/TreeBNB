@@ -85,7 +85,7 @@ class TreeLSTM(nn.Module):
             The prediction of each node.
         """
         # feed embedding
-        g.to(self.device)
+        g = g.to(self.device)
         g = g.to(torch.device("cuda:0"))
         print(g.device)
         features = g.ndata["feature"]
@@ -175,9 +175,12 @@ class TreeLSTMBranch(nn.Module):
         """
 
         # feed embedding
-        g.to(self.device)
+        g = g.to(self.device)
         features = g.ndata["feature"]
         features = features.to(device=self.device)
+        iou = iou.to(device=self.device)
+        h = h.to(device=self.device)
+        c = c.to(device=self.device)
         g.ndata['Wx'] = self.cell.W_iou(features)
         g.ndata["Wfx"] = self.cell.W_f(features)
         g.ndata["iou"] = iou
