@@ -12,3 +12,16 @@
 11/08/2020 22:59:07: Type: Test, Model Name: RankDagger, Data Path: ../realsingle, Accuracy: 7.33, Loss: 1.08 
 12/08/2020 01:39:16: Type: Train, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 56.70, Loss: 1.67, Description: Training single instance to get debug accuracy
 12/08/2020 10:51:47: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 59.26, Loss: 1.00 
+18/08/2020 19:06:25: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 0.00, Loss: 0.00 
+, NumNodes: 42618/08/2020 19:19:19: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 0.00, Loss: 0.00 
+, NumNodes: 1118/08/2020 19:27:02: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 0.38, Loss: 0.12 
+, NumNodes: 42618/08/2020 19:52:13: Type: Test, Model Name: TreeDagger, Data Path: ../realsingle, Accuracy: 12.57, Loss: 3.87 
+, NumNodes: 42622/08/2020 00:38:39: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/, Accuracy: 11.11, Loss: 0.00, Description: supervised
+22/08/2020 00:46:52: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/, Accuracy: 3.57, Loss: 0.01, Description: supervised
+22/08/2020 00:47:40: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/, Accuracy: 3.78, Loss: 0.01, Description: supervised
+22/08/2020 00:56:30: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/, Accuracy: 4.34, Loss: 0.00, Description: supervised
+22/08/2020 00:59:13: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/, Accuracy: 4.63, Loss: 0.00, Description: supervised
+13/09/2020 12:26:08: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se, Accuracy: 22.10, Loss: 0.07, Description: supervised
+13/09/2020 18:56:25: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se, Accuracy: 4.54, Loss: 0.08, Description: supervised
+13/09/2020 22:55:44: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se, Accuracy: 7.46, Loss: 0.08, Description: supervised
+14/09/2020 15:11:53: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se, Accuracy: 3.06, Loss: 0.08, Description: supervised

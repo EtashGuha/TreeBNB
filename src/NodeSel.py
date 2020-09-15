@@ -86,7 +86,7 @@ class MyNodesel(Nodesel):
                 g.add_edge(parent.getNumber(), num)
 
         dgltree = dgl.DGLGraph()
-        dgltree.from_networkx(g, node_attrs=["feature", "node_id", "in_queue"])
+        dgltree = dgl.from_networkx(g, node_attrs=["feature", "node_id", "in_queue"])
 
         # To calculate node features via lstm
         with torch.no_grad():
@@ -231,7 +231,7 @@ class SamplerNodesel(Nodesel):
                 g.add_edge(parent.getNumber(), num)
 
         dgltree = dgl.DGLGraph()
-        dgltree.from_networkx(g, node_attrs=["feature", "node_id", "in_queue"])
+        dgltree = dgl.from_networkx(g, node_attrs=["feature", "node_id", "in_queue"])
 
         if self.counter % 10 == 0:
 
