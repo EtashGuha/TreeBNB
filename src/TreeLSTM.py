@@ -84,9 +84,7 @@ class TreeLSTM(nn.Module):
         logits : Tensor
             The prediction of each node.
         """
-        g.register_message_func(self.cell.message_func)
-        g.register_reduce_func(self.cell.reduce_func)
-        g.register_apply_node_func(self.cell.apply_node_func)
+        g.update_all(self.cell.message_func, self.cell.reduce_func, self.cell.apply_node_func)
         # feed embedding
         features = g.ndata["feature"]
         features = features.to(device=self.device)
@@ -172,10 +170,10 @@ class TreeLSTMBranch(nn.Module):
         logits : Tensor
             The prediction of each node.
         """
-        g.register_message_func(self.cell.message_func)
-        g.register_reduce_func(self.cell.reduce_func)
-        g.register_apply_node_func(self.cell.apply_node_func)
+
         # feed embedding
+        g.update_all(self.cell.message_func, self.cell.reduce_func, self.cell.apply_node_func)
+
         features = g.ndata["feature"]
         features = features.to(device=self.device)
         g.ndata['Wx'] = self.cell.W_iou(features)
