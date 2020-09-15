@@ -86,11 +86,11 @@ class TreeLSTM(nn.Module):
         """
         # feed embedding
         g = g.to(self.device)
-        g = g.to(torch.device("cuda:0"))
-        print(g.device)
         features = g.ndata["feature"]
         features = features.to(device=self.device)
-        print(self.cell.W_iou(features).device)
+        iou = iou.to(device=self.device)
+        h = h.to(device=self.device)
+        c = c.to(device=self.device)
 
         g.ndata['Wx'] = self.cell.W_iou(features)
         g.ndata["Wfx"] = self.cell.W_f(features)
