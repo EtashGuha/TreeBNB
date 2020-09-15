@@ -84,7 +84,6 @@ class TreeLSTM(nn.Module):
         logits : Tensor
             The prediction of each node.
         """
-        g.update_all(self.cell.message_func, self.cell.reduce_func, self.cell.apply_node_func)
         # feed embedding
         features = g.ndata["feature"]
         features = features.to(device=self.device)
@@ -95,8 +94,8 @@ class TreeLSTM(nn.Module):
         g.ndata['c'] = c
         g.to(self.device)
         # propagate
-        dgl.prop_nodes_topo(g, reverse=True)
-        dgl.prop_nodes_topo(g)
+        dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
+        dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
 
         #TRY BELIEF PROPOGATION
         # compute logits
@@ -172,8 +171,6 @@ class TreeLSTMBranch(nn.Module):
         """
 
         # feed embedding
-        g.update_all(self.cell.message_func, self.cell.reduce_func, self.cell.apply_node_func)
-
         features = g.ndata["feature"]
         features = features.to(device=self.device)
         g.ndata['Wx'] = self.cell.W_iou(features)
@@ -183,8 +180,8 @@ class TreeLSTMBranch(nn.Module):
         g.ndata['c'] = c
         g.to(self.device)
         # propagate
-        dgl.prop_nodes_topo(g, reverse=True)
-        dgl.prop_nodes_topo(g)
+        dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
+        dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
         # compute logits
         h = self.linear(g.ndata['h']).squeeze(dim=1)
 
