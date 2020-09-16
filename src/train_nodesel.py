@@ -53,7 +53,7 @@ elif mode == "tree_super":
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
 
-    offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se", device, "../data/instances/setcover/100_200samples/100_200.pkl",  "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se", num_repeat=1,
+    offline =  tree_offline(lstmFeature, "data/instances/setcover_0.05d_100mc_0se/train_500r_1000c", device, "/data/instances/setcover_0.05d_100mc_0se/valid_500r_1000c",  "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se", num_repeat=1,
                            num_train=1000, num_epoch=7, save_path="../lstmFeature.pt")
     offline.setDescription("supervised")
     offline.train()
