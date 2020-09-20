@@ -8,7 +8,7 @@ import pickle
 from utilities import init_scip_params, init_scip_params_haoran, personalize_scip
 import os
 class Sampler():
-    def __init__(self, time_limit = 450):
+    def __init__(self, time_limit = 200):
         self.dataset = []
         self.time_limit = time_limit
         self.problem_list = []
@@ -19,6 +19,7 @@ class Sampler():
         self.nodesel = SamplerNodesel(self.model, dataset=temp_features)
         self.model.includeNodesel(self.nodesel, "nodesel", "My node selection", 999999, 999999)
         personalize_scip(self.model, 10)
+
         self.model.setRealParam('limits/time', self.time_limit)
         self.model.readProblem(problem)
         self.model.optimize()

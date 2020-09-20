@@ -97,6 +97,7 @@ class Dagger():
             self.num_train = num_train
         self.model = Model("setcover")
         self.sfeature_list = []
+        self.weights = []
         self.soracle = []
         self.loss = loss
         self.optimizer = optim.Adam(self.policy.parameters(), lr= 1e-3)
@@ -316,19 +317,49 @@ class RankDagger(Dagger):
 
         self.write_to_log_file("Test", problems, total_num_right/total_num_cases, running_loss / len(s_loader))
 class TreeDagger(Dagger):
-    def __init__(self, selector, problem_dir, device, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
+    def __init__(self, selector, problem_dir, device, val_dir, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path)
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
         self.time_limit = 60
         self.model_name = "TreeDagger"
         self.chunk_size = 2
+        self.val_dir = val_dir
 
+    def validate(self):
+        pickles = glob.glob(self.val_dir + "/*.pkl")
+        number_right = 0
+        total_weight = 0
+        for sample in pickles:
+            self.dataset = pickle.load(open(sample, "rb"))
+            if len(self.dataset) == 0:
+                continue
+            try:
+                s_loader = DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True,
+                                      collate_fn=collate_undebug)
+            except:
+                continue
+            for (bg, labels, weights) in s_loader:
+                self.optimizer.zero_grad()
+                unbatched, outputs = self.compute(bg)
+                total_loss = None
+                for i in range(len(unbatched)):
+                    output = outputs[i]
+                    label = labels[i]
+                    weight = weights[i]
+                    total_weight += weight
+                    _, indices = torch.max(output, 0)
+                    if indices.item() == label.item():
+                        number_right += 1 * weight
+                    total_weight += weight
+            torch.cuda.empty_cache()
+        return number_right / total_weight
 
     def solveModel(self, problem, default=False, to_train=True):
         temp_features = []
         torch.autograd.set_detect_anomaly(True)
         self.model = Model("setcover")
+        self.model.hideOutput()
         step_ids = []
         ourNodeSel = None
         if not default:
@@ -347,14 +378,17 @@ class TreeDagger(Dagger):
         return temp_features, step_ids, ourNodeSel
 
     def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500, num_nodes=None):
+        self.debug = []
+        self.soracle = []
+        self.sfeature_list = []
+        self.weights = []
+
         optimal_node = None
         for node in ourNodeSel.tree.leaves():
             if checkIsOptimal(node, self.model, ourNodeSel.tree):
                 optimal_node = node
                 break
-        print("hallo")
         if optimal_node is not None:
-
             optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
             for i in range(len(temp_features)):
                 queue_contains_optimal = False
@@ -372,8 +406,9 @@ class TreeDagger(Dagger):
                     self.sfeature_list.append(temp_features[i])
 
                     self.weights.append(1/len(temp_features))
-
-        samples = list(zip(self.sfeature_list, self.soracle, self.debug, self.weights))[-1 * num_past:]
+        for i in range(len(self.weights)):
+            self.weights[i] = 1/len(self.weights)
+        samples = list(zip(self.sfeature_list, self.soracle, self.debug, self.weights))
         return samples
 
     def compute(self, bg):
@@ -385,19 +420,18 @@ class TreeDagger(Dagger):
         h = torch.zeros((n, h_size))
         c = torch.zeros((n, h_size))
         iou = torch.zeros((n, 3 * h_size))
-        if torch.cuda.device_count() > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
-            self.policy =  nn.DataParallel(self.policy)
+        # if torch.cuda.device_count() > 1:
+        #     print("Let's use", torch.cuda.device_count(), "GPUs!")
+        #     # dim = 0 [30, xxx] -> [10, ...], [10, ...], [10, ...] on 3 GPUs
+        #     self.policy =  nn.DataParallel(self.policy)
         outputs, _ = self.policy(g, h, c, iou)
+        outputs = size_splits(outputs, sizes)
 
         return unbatched, outputs
     def sample(self, problem, return_queue):
-        print(problem)
 
         temp_features, step_ids, ourNodeSel = self.solveModel(problem)
         self.listNNodes.append(self.model.getNNodes())
-        print(self.listNNodes)
 
         if len(ourNodeSel.tree.all_nodes()) < 2:
             return
@@ -416,34 +450,29 @@ class TreeDagger(Dagger):
     def train(self):
         self.policy.train()
         counter = 0
+        problems = glob.glob(self.problem_dir + "/*.lp")
         average_loss = 0
         total_num_right = 0
         total_num_cases = 0
         for epoch in range(self.num_repeat):
-            chunks = [self.problems[x:x + self.chunk_size] for x in range(0, len(self.problems), self.chunk_size)]
-            for chunk in chunks:
-                self.switch_device(device="cpu")
+            for problem in problems:
                 samples = []
-                return_queue = mp.Queue()
-                processes = []
-                for problem in chunk:
-                    p = mp.Process(target=self.sample, args=(problem, return_queue))
-                    p.start()
-                    processes.append(p)
-                for p in processes:
-                    p.join()
-                while not return_queue.empty():
-                    samples.append(return_queue.get())
+                counter += 1
+                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
+
+                if len(ourNodeSel.tree.all_nodes()) < 2:
+                    continue
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_nodes=self.model.getNNodes())
                 if len(samples) == 0:
                     continue
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, num_workers=int(self.chunk_size), collate_fn=collate)
-                print('Number of datapoints: %d' % (len(samples)))
+
                 self.switch_device()
                 for epoch in range(self.num_epoch):
                     running_loss = 0.0
                     number_right = 0
                     total_weight = 0
-                    print("loading")
                     for (bg, labels, weights) in s_loader:
                         self.optimizer.zero_grad()
 
@@ -473,15 +502,22 @@ class TreeDagger(Dagger):
                     total_loss += running_loss
                     average_loss += total_loss
                     total_num_cases += len(samples)
-                    total_num_right += number_right
-                    print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
-                          (epoch + 1, running_loss / total_weight, number_right/total_weight, number_right))
+                    # total_num_right += number_right
+                    # print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
+                    #       (epoch + 1, running_loss / total_weight, number_right/total_weight, number_right))
                     running_loss = 0.0
                 # except:
                 #     continue
+
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
+
+                if counter % 10 == 0:
+                    val_accuracy = self.validate()
+                    print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
+                          (epoch + 1, running_loss / total_num_cases, val_accuracy, number_right))
+
 
         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
 
