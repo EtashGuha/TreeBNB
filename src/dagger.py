@@ -449,6 +449,7 @@ class TreeDagger(Dagger):
         self.policy.device = device
     def train(self):
         self.policy.train()
+        torch.cuda.empty_cache()
         counter = 0
         problems = glob.glob(self.problem_dir + "/*.lp")
         average_loss = 0
@@ -456,6 +457,7 @@ class TreeDagger(Dagger):
         total_num_cases = 0
         for epoch in range(self.num_repeat):
             for problem in problems:
+                torch.cuda.empty_cache()
                 samples = []
                 counter += 1
                 temp_features, step_ids, ourNodeSel = self.solveModel(problem)
