@@ -474,7 +474,6 @@ class TreeDagger(Dagger):
                     running_loss = 0.0
                     number_right = 0
                     total_weight = 0
-                    print(s_loader)
                     for (bg, labels, weights) in s_loader:
                         self.optimizer.zero_grad()
 
