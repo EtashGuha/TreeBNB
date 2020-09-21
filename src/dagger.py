@@ -469,7 +469,6 @@ class TreeDagger(Dagger):
                 if len(samples) == 0:
                     continue
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-                git
                 self.switch_device()
                 for epoch in range(self.num_epoch):
                     running_loss = 0.0
