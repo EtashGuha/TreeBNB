@@ -468,13 +468,14 @@ class TreeDagger(Dagger):
                 samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_nodes=self.model.getNNodes())
                 if len(samples) == 0:
                     continue
-                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, num_workers=int(self.chunk_size), collate_fn=collate)
-
+                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+                git
                 self.switch_device()
                 for epoch in range(self.num_epoch):
                     running_loss = 0.0
                     number_right = 0
                     total_weight = 0
+                    print(s_loader)
                     for (bg, labels, weights) in s_loader:
                         self.optimizer.zero_grad()
 
