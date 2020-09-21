@@ -31,7 +31,7 @@ if mode == "tree":
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
 
-    my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se", device, "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se", num_repeat=1, num_train = 1000, num_epoch= 4, save_path="../lstmFeature.pt")
+    my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se", device, "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se", num_repeat=1, num_train = 1000, num_epoch= 4, save_path="../lstmFeature.pt")
     my_dagger.setDescription("Training on large instances for 500 cases")
     my_dagger.train()
 
