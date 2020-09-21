@@ -330,6 +330,7 @@ class TreeDagger(Dagger):
         pickles = glob.glob(self.val_dir + "/*.pkl")
         number_right = 0
         total_weight = 0
+        print(self.val_dir)
         print(pickles)
         for sample in pickles:
             self.dataset = pickle.load(open(sample, "rb"))
