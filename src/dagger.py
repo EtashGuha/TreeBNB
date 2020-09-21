@@ -330,8 +330,10 @@ class TreeDagger(Dagger):
         pickles = glob.glob(self.val_dir + "/*.pkl")
         number_right = 0
         total_weight = 0
+        print(pickles)
         for sample in pickles:
             self.dataset = pickle.load(open(sample, "rb"))
+            print(self.dataset)
             if len(self.dataset) == 0:
                 continue
             try:
@@ -514,7 +516,7 @@ class TreeDagger(Dagger):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
 
-                if counter % 10 == 0:
+                if counter % 1 == 0:
                     val_accuracy = self.validate()
                     print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
                           (epoch + 1, running_loss / total_num_cases, val_accuracy, number_right))
