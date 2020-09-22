@@ -455,7 +455,7 @@ class TreeDagger(Dagger):
         average_loss = 0
         total_num_right = 0
         total_num_cases = 0
-        for epoch in range(self.num_repeat):
+        for total_epoch in range(self.num_repeat):
             for problem in problems:
                 torch.cuda.empty_cache()
                 samples = []
@@ -514,10 +514,10 @@ class TreeDagger(Dagger):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
 
-                if counter % 1 == 0:
+                if counter % 10 == 0:
                     val_accuracy = self.validate()
                     print('[%d] loss: %.3f accuracy: %.3f number right: %.3f' %
-                          (epoch + 1, running_loss / total_num_cases, val_accuracy, number_right))
+                          (total_epoch + 1, running_loss / total_num_cases, val_accuracy, number_right))
 
 
         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_cases, average_loss/total_num_cases)
