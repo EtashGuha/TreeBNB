@@ -327,11 +327,11 @@ class TreeDagger(Dagger):
         self.val_dir = val_dir
 
     def validate(self):
-        pickles = glob.glob(self.val_dir + "/*.pkl")[:10]
+        pickles = glob.glob(self.val_dir + "/*.pkl")
         number_right = 0
         total_weight = 0
         for sample in pickles:
-            self.dataset = pickle.load(open(sample, "rb"))
+            self.dataset = pickle.load(open(sample, "rb"))[:10]
             if len(self.dataset) == 0:
                 continue
             try:
