@@ -885,7 +885,7 @@ if __name__ == '__main__':
 
         number_of_nodes = 400
         # train instances
-        n = 20
+        n = 500
         lp_dir = os.path.join(dir, f'train_{number_of_nodes}n/')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -893,7 +893,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # validation instances
-        n = 10
+        n = 50
         lp_dir = os.path.join(dir, f'valid_{number_of_nodes}n/')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -901,7 +901,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # test instances
-        n = 10
+        n = 50
         lp_dir = os.path.join(dir, f'test_{number_of_nodes}n/')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
