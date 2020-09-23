@@ -37,7 +37,7 @@ if mode == "tree":
                            "data/instances/setcover_0.05d_100mc_0se/valid_500r_1000c", num_repeat=1, num_train=1000,
                            num_epoch=4, save_path="../lstmFeature.pt")
     my_dagger.setDescription("testing on large instances for 500 cases")
-    tree_vals, def_vals = my_dagger.test("data/instances/setcover_0.05d_100mc_0se/test_500r_1000c")
+    tree_vals, def_vals = my_dagger.test("data/instances/indset_350n_4a_0se/test_400n/")
     print(tree_vals)
     print(def_vals)
 # create the model
