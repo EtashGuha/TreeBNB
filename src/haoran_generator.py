@@ -874,7 +874,7 @@ if __name__ == '__main__':
         print('done.')
 
     elif args.problem == 'indset':
-        n0 = 3500
+        n0 = 600
         affinity = 4
         dir = f'data/instances/indset_{n0}n_{affinity}a_{args.seed}se/'
         if not os.path.isdir(dir):
@@ -883,7 +883,7 @@ if __name__ == '__main__':
         filenames = []
         nnodess = []
 
-        number_of_nodes = 4000
+        number_of_nodes = 600
         # train instances
         n = 500
         lp_dir = os.path.join(dir, f'train_{number_of_nodes}n/')

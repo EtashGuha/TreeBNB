@@ -358,7 +358,7 @@ class TreeDagger(Dagger):
     def solveModel(self, problem, default=False, to_train=True):
         temp_features = []
         torch.autograd.set_detect_anomaly(True)
-        self.model = Model("setcover")
+        self.model = Model("indset")
         self.model.hideOutput()
         step_ids = []
         ourNodeSel = None
