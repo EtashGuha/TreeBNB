@@ -1,28 +1,35 @@
-from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
-    Branchrule, Nodesel
-from brancher import TreeBranch
-import torch
-from TreeLSTM import TreeLSTMBranch
-from nodeutil import checkIsOptimal
-# hyper parameters
-x_size = 14
-h_size = 14
-dropout = 0.5
-lr = 0.05
-weight_decay = 1000000000000
-epochs = 10
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import torch.nn as nn
+import torch.optim as optim
+from torch.nn.parallel import DistributedDataParallel as DDP
 
-device= torch.device('cpu')
-lstmFeature = TreeLSTMBranch(x_size,
-                       h_size,
-                       dropout,
-                       device=device)
-problem = "../realsingle/instance_9.lp"
 
-model = Model("setcover")
-model.readProblem(problem)
-myBranch = TreeBranch(model, lstmFeature)
-model.includeBranchrule(myBranch, "ImitationBranching", "Policy branching on variable",
-                                    priority=99999, maxdepth=-1, maxbounddist=1)
-model.optimize()
+def example(rank, world_size):
+    # create default process group
+    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    # create local model
+    model = nn.Linear(10, 10).to(rank)
+    # construct DDP model
+    ddp_model = DDP(model, device_ids=[rank])
+    # define loss function and optimizer
+    loss_fn = nn.MSELoss()
+    optimizer = optim.SGD(ddp_model.parameters(), lr=0.001)
 
+    # forward pass
+    outputs = ddp_model(torch.randn(20, 10).to(rank))
+    labels = torch.randn(20, 10).to(rank)
+    # backward pass
+    loss_fn(outputs, labels).backward()
+    # update parameters
+    optimizer.step()
+
+def main():
+    world_size = 2
+    mp.spawn(example,
+        args=(world_size,),
+        nprocs=world_size,
+        join=True)
+
+if __name__=="__main__":
+    main()

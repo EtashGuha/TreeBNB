@@ -33,8 +33,11 @@ if mode == "tree":
     lstmFeature.cell.to(device)
     if os.path.exists("../lstmFeature.pt"):
         lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
-    my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_train = 1000, num_epoch=4, save_path="../lstmFeature.pt")
-    tree_vals, def_vals = my_dagger.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")
+    my_dagger = TreeDagger(lstmFeature, "data/instances/setcover_0.05d_100mc_0se/train_500r_1000c", device,
+                           "data/instances/setcover_0.05d_100mc_0se/valid_500r_1000c", num_repeat=1, num_train=1000,
+                           num_epoch=4, save_path="../lstmFeature.pt")
+    my_dagger.setDescription("testing on large instances for 500 cases")
+    tree_vals, def_vals = my_dagger.test("data/instances/indset_350n_4a_0se/test_400n/")
     print(tree_vals)
     print(def_vals)
 # create the model
@@ -65,7 +68,8 @@ elif mode == "tree_super":
     if os.path.exists("../lstmFeature.pt"):
         lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
 
-    offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, "../data/instances/setcover/100_200samples/100_200.pkl", num_repeat=1,
+
+    offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se", device, "../data/instances/setcover/100_200samples/100_200.pkl", "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se", num_repeat=1,
                            num_train=1000, num_epoch=4, save_path="../lstmFeatureRank.pt")
     offline.setDescription("supervised")
     tree_vals , def_vals = offline.test("../data/instances/setcover/test_100r_200c_0.1d_5mc_10se")

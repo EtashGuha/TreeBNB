@@ -31,8 +31,8 @@ if mode == "tree":
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
 
-    my_dagger = TreeDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, num_repeat=1, num_train = 1000, num_epoch= 4, save_path="../lstmFeature.pt")
-    my_dagger.setDescription("Training single instance to get debug accuracy")
+    my_dagger = TreeDagger(lstmFeature, "data/instances/indset_600n_4a_0se/train_600n", device, "data/instances/indset_600n_4a_0se/valid_600n", num_repeat=1, num_train = 1000, num_epoch= 4, save_path="../lstmFeature.pt")
+    my_dagger.setDescription("Training on large instances for 500 cases")
     my_dagger.train()
 
     print(my_dagger.listNNodes)
@@ -53,7 +53,7 @@ elif mode == "tree_super":
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
 
-    offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device, "../data/instances/setcover/100_200samples/100_200.pkl", num_repeat=1,
+    offline =  tree_offline(lstmFeature, "../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se", device, "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se",  "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se", num_repeat=1,
                            num_train=1000, num_epoch=7, save_path="../lstmFeature.pt")
     offline.setDescription("supervised")
     offline.train()

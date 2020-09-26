@@ -84,21 +84,22 @@ class TreeLSTM(nn.Module):
         logits : Tensor
             The prediction of each node.
         """
-        g.register_message_func(self.cell.message_func)
-        g.register_reduce_func(self.cell.reduce_func)
-        g.register_apply_node_func(self.cell.apply_node_func)
         # feed embedding
+        g = g.to(self.device)
         features = g.ndata["feature"]
         features = features.to(device=self.device)
+        iou = iou.to(device=self.device)
+        h = h.to(device=self.device)
+        c = c.to(device=self.device)
+
         g.ndata['Wx'] = self.cell.W_iou(features)
         g.ndata["Wfx"] = self.cell.W_f(features)
         g.ndata["iou"] = iou
         g.ndata['h'] = h
         g.ndata['c'] = c
-        g.to(self.device)
         # propagate
-        dgl.prop_nodes_topo(g, reverse=True)
-        dgl.prop_nodes_topo(g)
+        dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
+        dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
 
         #TRY BELIEF PROPOGATION
         # compute logits
@@ -172,21 +173,22 @@ class TreeLSTMBranch(nn.Module):
         logits : Tensor
             The prediction of each node.
         """
-        g.register_message_func(self.cell.message_func)
-        g.register_reduce_func(self.cell.reduce_func)
-        g.register_apply_node_func(self.cell.apply_node_func)
+
         # feed embedding
+        g = g.to(self.device)
         features = g.ndata["feature"]
         features = features.to(device=self.device)
+        iou = iou.to(device=self.device)
+        h = h.to(device=self.device)
+        c = c.to(device=self.device)
         g.ndata['Wx'] = self.cell.W_iou(features)
         g.ndata["Wfx"] = self.cell.W_f(features)
         g.ndata["iou"] = iou
         g.ndata['h'] = h
         g.ndata['c'] = c
-        g.to(self.device)
         # propagate
-        dgl.prop_nodes_topo(g, reverse=True)
-        dgl.prop_nodes_topo(g)
+        dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
+        dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
         # compute logits
         h = self.linear(g.ndata['h']).squeeze(dim=1)
 

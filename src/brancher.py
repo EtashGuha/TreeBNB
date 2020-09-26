@@ -103,7 +103,7 @@ class TreeBranch(Branchrule):
 
             g = _build_tree(self.tree, self.model)
             dgltree = dgl.DGLGraph()
-            dgltree.from_networkx(g, node_attrs=["feature", "node_id", "in_queue", "variable_chosen",
+            dgltree = dgl.from_networkx(g, node_attrs=["feature", "node_id", "in_queue", "variable_chosen",
                                                  "scaled_improvement_down", "scaled_improvement_up"])
             best_var, tree_scores, _, _, _ = self.calcLSTMFeatures(dgltree)
 
