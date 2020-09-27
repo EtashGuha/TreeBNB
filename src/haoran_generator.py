@@ -874,7 +874,7 @@ if __name__ == '__main__':
         print('done.')
 
     elif args.problem == 'indset':
-        n0 = 600
+        n0 = 300
         affinity = 4
         dir = f'data/instances/indset_{n0}n_{affinity}a_{args.seed}se/'
         if not os.path.isdir(dir):
