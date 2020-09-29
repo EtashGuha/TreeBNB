@@ -5,7 +5,6 @@ import scipy.sparse
 import sys, pickle
 import networkx as nx
 sys.path.append('..')
-
 from itertools import combinations
 
 def valid_seed(seed):
@@ -143,14 +142,17 @@ class Graph():
 
 
 class set_cover():
-    def __init__(self, max_nrows, max_ncols, density, mc, seed):
+    def __init__(self, nrows, ncols, density, mc, seed):
+        self.nrows = nrows
+        self.ncols = ncols
+        self.density = density
         self.rng = np.random.RandomState(seed)
-        backbone = f'data/instances/setcover_{density}d_{mc}mc_{seed}se/backbone.pkl'
+        backbone = f'data/instances/setcover_{nrows}r_{ncols}c_{density}d_{mc}mc_{seed}se/backbone.pkl'
         if os.path.isfile(backbone):
             with open(backbone, 'rb') as handle:
                 self.A, self.c = pickle.load(handle)
         else:
-            self.A, self.c = self.generate_A(max_nrows, max_ncols, density, mc, backbone)
+            self.A, self.c = self.generate_A(nrows, ncols, density, mc, backbone)
 
     def generate_A(self, nrows, ncols, density, mc, backbone):
         nnzrs = int(nrows * ncols * density)
@@ -187,13 +189,36 @@ class set_cover():
             pickle.dump([A, c], handle)
         return A, c
 
-    def disturb_generator(self, ndisturb, filename):
-        A = scipy.sparse.coo_matrix(self.A)
-        c = self.c + self.rng.randint(2,size=self.c.shape)
-        for _ in range(ndisturb):
-            i, j = self.rng.permutation(A.getnnz())[:2]
-            A.row[i], A.row[j] = A.row[j], A.row[i]
-        A = A.tocsr()
+    def sup_generator(self, nrows, ncols, filename):
+        new_nrows = nrows - self.nrows
+        assert new_nrows >= 0 and ncols == self.ncols
+        nnzrs = int(new_nrows * ncols * self.density)
+        # compute number of rows per column
+        indices = rng.choice(ncols, size=nnzrs)  # random column indexes
+        indices[:2 * ncols] = np.repeat(np.arange(ncols), 2)  # force at leats 2 rows per col
+        _, col_nrows = np.unique(indices, return_counts=True)
+
+        # for each column, sample random rows
+        indices[:new_nrows] = rng.permutation(new_nrows)  # force at least 1 column per row
+        i = 0
+        indptr = [0]
+        for n in col_nrows:
+            # empty column, fill with random rows
+            if i >= new_nrows:
+                indices[i:i + n] = rng.choice(new_nrows, size=n, replace=False)
+            # partially filled column, complete with random rows among remaining ones
+            elif i + n > new_nrows:
+                remaining_rows = np.setdiff1d(np.arange(new_nrows), indices[i:new_nrows], assume_unique=True)
+                indices[new_nrows:i + n] = rng.choice(remaining_rows, size=i + n - new_nrows, replace=False)
+            i += n
+            indptr.append(i)
+
+        new_A = scipy.sparse.csc_matrix(
+            (np.ones(len(indices), dtype=int), indices, indptr),
+            shape=(nrows, ncols)).todense()
+
+        A = scipy.sparse.csr_matrix(np.concatenate([self.A, new_A], axis=0))
+        c = self.c
         indices = A.indices
         indptr = A.indptr
         # write problem
@@ -233,47 +258,40 @@ class set_cover():
 
 
 class facility():
-    def __init__(self, n_c, n_f, ratio, seed):
+    def __init__(self, n_c, n_f, c_max, ratio, seed):
         self.n_c = n_c
         self.n_f = n_f
+        self.c_max = c_max
         self.ratio = ratio
         self.rng = np.random.RandomState(seed)
-        self.demands = self.rng.randint(10, 30, size=n_c)
-        self.capacities = self.rng.randint(50, 120, size=n_f)
         backbone = f'data/instances/facility_{n_c}c_{n_f}f_{ratio}r_{seed}se/backbone.pkl'
         if os.path.isfile(backbone):
             with open(backbone, 'rb') as handle:
                 self.backbone = pickle.load(handle)
         else:
-            c_x = rng.rand(n_c)
-            c_y = rng.rand(n_c)
+            demands = self.rng.randint(10, 30, size=c_max)
+            capacities = self.rng.randint(10, 160, size=n_f)
+            c_x = rng.rand(c_max)
+            c_y = rng.rand(c_max)
             f_x = rng.rand(n_f)
             f_y = rng.rand(n_f)
-            for i in range(1, n_c):
-                if self.rng.rand() < 0.9:
+            for i in range(n_c, c_max):
+                if self.rng.rand() < 0.95:
                     k = self.rng.randint(i)
-                    c_x[i] = 0.1 * c_x[i] + 0.9 * c_x[k]
-                    c_y[i] = 0.1 * c_y[i] + 0.9 * c_y[k]
-            self.backbone = [c_x, c_y, f_x, f_y]
+                    c_x[i] = 0.05 * c_x[i] + 0.95 * c_x[k]
+                    c_y[i] = 0.05 * c_y[i] + 0.95 * c_y[k]
+            self.backbone = [c_x, c_y, f_x, f_y, demands, capacities]
             with open(backbone, 'wb') as handle:
                 pickle.dump(self.backbone, handle)
 
-    def generate(self, n_c, n_f, filename):
+    def generate(self, n_c, filename):
         assert n_c >= self.n_c
-        assert n_f >= self.n_f
-        c_x = np.concatenate((self.backbone[0], self.rng.rand(n_c - self.n_c)))
-        c_y = np.concatenate((self.backbone[1], self.rng.rand(n_c - self.n_c)))
-        f_x = np.concatenate((self.backbone[2], self.rng.rand(n_f - self.n_f)))
-        f_y = np.concatenate((self.backbone[3], self.rng.rand(n_f - self.n_f)))
-        for i in range(self.n_c, n_c):
-            if self.rng.rand() < 0.9:
-                k = self.rng.randint(i)
-                c_x[i] = 0.1 * c_x[i] + 0.9 * c_x[k]
-                c_y[i] = 0.1 * c_y[i] + 0.9 * c_y[k]
-        demands = np.concatenate((self.demands + self.rng.randint(-5,5, size=self.n_c),
-                                  self.rng.randint(5, 35 + 1, size=n_c-self.n_c)))
-        capacities = np.concatenate((self.capacities+self.rng.randint(-20,20, size=self.n_f),
-                                     self.rng.randint(30, 140 + 1, size=n_f-self.n_f)))
+        c_x = self.backbone[0][:n_c]
+        c_y = self.backbone[1][:n_c]
+        f_x = self.backbone[2]
+        f_y = self.backbone[3]
+        demands = self.backbone[4][:n_c] + self.rng.randint(-5,5, size=n_c)
+        capacities = self.backbone[5]
         fixed_costs = self.rng.randint(100, 110 + 1, size=n_f) * np.sqrt(capacities) + self.rng.randint(90 + 1, size=n_f)
         fixed_costs = fixed_costs.astype(int)
 
@@ -324,64 +342,78 @@ class FCNF():
     A Parallel Local Search Framework for the Fixed-Charge Multicommodity Network Flow Problem
     http://www.optimization-online.org/DB_FILE/2014/06/4410.pdf
     '''
-    def __init__(self, n0, aff, d, u, f, q, seed):
+    def __init__(self, n0, K, seed):
         self.n0 = n0
-        self.aff = aff
-        self.d = d
+        self.K = K
         self.rng = np.random.RandomState(seed)
-        backbone = f'data/instances/fcnf_{n0}n_{aff}a_{d}d_{u}u_{f}f_{q}q_{seed}se/backbone.pkl'
+        backbone = f'data/instances/fcnf_{n0}n_{K}k_{seed}se/backbone.pkl'
         if os.path.isfile(backbone):
             with open(backbone, 'rb') as handle:
                 self.backbone = pickle.load(handle)
         else:
-            graph = nx.barabasi_albert_graph(n0, aff)
+            Q = self.rng.randint(3,10, size=K)
+            commodity = self.rng.permutation(n0)[:2*K].reshape(K,2)
+            graph = nx.erdos_renyi_graph(n0, 4/n0)
             graph = graph.to_directed()
             attrs = {}
             for edge in graph.edges():
-                attrs[edge] = {'f': self.rng.randint(f) + 1, 'u_p': self.rng.randint(int(u/2)+1, u),
-                               'q': self.rng.randint(2, q)}
+                attrs[edge] = {'f': self.rng.randint(10, 50), 'u': self.rng.randint(10, 20),
+                               'c': self.rng.randint(3, 10)}
             nx.set_edge_attributes(graph, attrs)
-            self.backbone = graph
+            self.backbone = [graph, Q, commodity]
             with open(backbone, 'wb') as handle:
                 pickle.dump(self.backbone, handle)
 
     def generate_fcnf(self, nnodes, filename):
         assert nnodes <= self.n0
+        # generate the random subgraph
         node_list = self.rng.permutation(self.n0)[:nnodes]
-        g = nx.subgraph(self.backbone, node_list)
+        g = nx.DiGraph(nx.subgraph(self.backbone[0], node_list))
+        g.remove_nodes_from(list(nx.isolates(g)))
+        node_list = [n for n in g.nodes()]
+        # find out the new commodity and disturb q
+        Q = self.backbone[1]
+        commodity = self.backbone[2]
+        q = []
+        coms = []
+        for k in range(commodity.shape[0]):
+            s, t = commodity[k]
+            if s in node_list and t in node_list:
+                if True:
+                # if nx.node_connectivity(g, s, t):
+                    q.append(Q[k] + self.rng.randint(-1,2))
+                    coms.append(commodity[k])
+        demands = np.zeros((len(q), self.n0))
+        for k in range(len(q)):
+            demands[k, coms[k][0]] = -1
+            demands[k, coms[k][1]] = +1
+        # disturb cost on edge
         edge_attrs = {}
         for i, (s, t, d) in enumerate(g.edges(data=True)):
-            d['id'] = i + 1
-            d['q'] += self.rng.randint(-1, 2)
+            d['c'] += self.rng.randint(-1, 2)
             edge_attrs[(s, t)] = d
         nx.set_edge_attributes(g, edge_attrs)
 
-        degree = np.array([d[1] for d in list(g.degree)])
-        degree = degree / degree.sum()
-        s1, t1, s2, t2 = self.rng.choice(len(degree), 4, replace=False, p=degree)
-        d2, d1 = sorted(self.rng.randint(int(self.d/2)+1, self.d, size=2))
+        # write instance
         with open(filename, 'w') as lp_file:
-            lp_file.write("minimize\nOBJ:" + "".join([f" + {d['q']} x{d['id']+1} + {d['f']} y{d['id'] + 1}" for i,j,d in range(g.edges(data=True))]) + "\n")
+            lp_file.write("minimize\nOBJ:" + "".join(["".join([f" + {d['c'] * q[k]} x_{i+1}_{j+1}_{k+1}" for k in range(len(q))])
+                                                      + f"+ {d['f']} y_{i+1}_{j+1}" for i,j,d in g.edges(data=True)]) + "\n")
             lp_file.write("\nsubject to\n")
-            for n in enumerate(g.nodes()):
-                if n == s1:
-                    demand = -d1
-                elif n == t1:
-                    demand = d1
-                elif n == s2:
-                    demand = -d2
-                elif n == t2:
-                    demand = d2
-                else:
-                    demand = 0
-                lp_file.write(f"demand_{n+1}:" + "".join([f" + x{d['id']+1}" for i,j,d in g.in_edges(n, data=True)]) +
-                              "".join([f"- x{d['id']+1}" for i,j,d in g.out_edges(n, data=True)]) + f" = {demand}\n")
-            lp_file.write("".join([f"capacity_{i+1}_{j+1}:" + f"x{d['id']+1} <= {d['u']} y{d['id']+1}\n" for i,j,d in enumerate(g.edges(data=True))]))
+            for i, j, d in g.edges(data=True):
+                lp_file.write(f"capacity_{i+1}_{j+1}:" + "".join([f" + {q[k]} x_{i+1}_{j+1}_{k+1}" for k in range(len(q))])
+                              + f"<= +{d['u']} y_{i+1}_{j+1}")
+
+            for n in g.nodes():
+                for k in range(len(q)):
+                    demand = demands[k, n]
+                    lp_file.write(f"demand_{n+1}_{k+1}:" + "".join([f" + x_{i+1}_{j+1}_{k+1}" for i,j in g.in_edges(n)])
+                                  + "".join([f" - x_{i+1}_{j+1}_{k+1}" for i,j in g.out_edges(n)]) + f" = {demand}\n")
+            # lp_file.write("".join([f"capacity_{i+1}_{j+1}:" + f" +1 x{d['id']+1} <= +{d['u']} y{d['id']+1}\n" for i,j,d in g.edges(data=True)]))
 
             lp_file.write("\nbounds\n")
-            lp_file.write("".join([f" 0<= x{d['id']+1} \n" for i,j,d in g.edges(data=True)]))
+            lp_file.write("".join([f"0 <= x_{i+1}_{j+1}_{k+1} <= 1 \n" for i,j in g.edges() for k in range(len(q))]))
             lp_file.write("\nbinary\n")
-            lp_file.write("".join([f" y{d['id']+1}" for i,j,d in g.edges(data=True)]) + "\n")
+            lp_file.write("".join([f" y_{i+1}_{j+1}" for i,j in g.edges()]) + "\n")
 
 
 class indset():
@@ -794,7 +826,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'problem',
         help='MILP instance type to process.',
-        choices=['setcover', 'fcfn', 'facility', 'indset'],
+        choices=['setcover', 'fcnf', 'facility', 'indset'],
     )
     parser.add_argument(
         '-s', '--seed',
@@ -807,24 +839,23 @@ if __name__ == '__main__':
     rng = np.random.RandomState(args.seed)
 
     if args.problem == 'setcover':
-        max_nrows = 1000
-        max_ncols = 2000
+        nrows0 = 400
         nrows = 500
         ncols = 1000
         dens = 0.05
         max_coef = 100
 
-        dir = f'data/instances/setcover_{dens}d_{max_coef}mc_{args.seed}se/'
+        dir = f'data/instances/setcover_{nrows0}r_{ncols}c_{dens}d_{max_coef}mc_{args.seed}se/'
         if not os.path.isdir(dir):
             os.makedirs(dir)
-        setcover_generator = set_cover(max_nrows, max_ncols, dens, max_coef, args.seed)
+        setcover_generator = set_cover(nrows0, ncols, dens, max_coef, args.seed)
 
         filenames = []
         nrowss = []
         ncolss = []
 
         # train instances
-        n = 500
+        n = 2
         print(dir)
         lp_dir = os.path.join(dir, f'train_{nrows}r_{ncols}c/')
         print(lp_dir)
@@ -835,7 +866,7 @@ if __name__ == '__main__':
         ncolss.extend([ncols] * n)
 
         # validation instances
-        n = 50
+        n = 2
         lp_dir = os.path.join(dir, f'valid_{nrows}r_{ncols}c')
         print(f"{n} instances in {lp_dir}")
         os.mkdir(lp_dir)
@@ -844,7 +875,7 @@ if __name__ == '__main__':
         ncolss.extend([ncols] * n)
 
         # test instances
-        n = 30
+        n = 10
         lp_dir = os.path.join(dir, f'test_{nrows}r_{ncols}c')
         print(f"{n} instances in {lp_dir}")
         os.mkdir(lp_dir)
@@ -852,29 +883,52 @@ if __name__ == '__main__':
         nrowss.extend([nrows] * n)
         ncolss.extend([ncols] * n)
 
+        # transfer instances
+        n = 5
+        nrows = 1000
+        lp_dir = os.path.join(dir, f'transfer_{nrows}r_{ncols}c')
+        print(f"{n} instances in {lp_dir}")
+        os.mkdir(lp_dir)
+        filenames.extend([os.path.join(lp_dir, f'instance_{i + 1}.lp') for i in range(n)])
+        nrowss.extend([nrows] * n)
+        ncolss.extend([ncols] * n)
+
+        # transfer instances
+        n = 5
+        nrows = 2000
+        lp_dir = os.path.join(dir, f'transfer_{nrows}r_{ncols}c')
+        print(f"{n} instances in {lp_dir}")
+        os.mkdir(lp_dir)
+        filenames.extend([os.path.join(lp_dir, f'instance_{i + 1}.lp') for i in range(n)])
+        nrowss.extend([nrows] * n)
+        ncolss.extend([ncols] * n)
+
 
         # actually generate the instances
         for filename, nrows, ncols in zip(filenames, nrowss, ncolss):
             print(f'  generating file {filename} ...')
-            setcover_generator.sub_generator(nrows=nrows, ncols=ncols, filename=filename)
+            setcover_generator.sup_generator(nrows=nrows, ncols=ncols, filename=filename)
 
-        # transfer instances
-        n = 10
-        lp_dir = os.path.join(dir, f'transfer_{max_nrows}r_{max_ncols}c')
-        print(f"{n} instances in {lp_dir}")
-        os.mkdir(lp_dir)
-        filenames = [os.path.join(lp_dir, f'instance_{i + 1}.lp') for i in range(n)]
-        ndisturb = [100] * n
-
-        # actually generate the instances
-        for filename, n in zip(filenames, ndisturb):
-            print(f'  generating file {filename} ...')
-            setcover_generator.disturb_generator(ndisturb= n, filename=filename)
+        # # transfer instances
+        # n = 10
+        # k = 4
+        # lp_dir = os.path.join(dir, f'transfer_{nrows*k}r_{ncols}c')
+        # print(f"{n} instances in {lp_dir}")
+        # os.mkdir(lp_dir)
+        # filenames = [os.path.join(lp_dir, f'instance_{i + 1}.lp') for i in range(n)]
+        # nnrows = [nrows] * n
+        # nncols = [ncols] * n
+        # nks = [k] * n
+        #
+        # # actually generate the instances
+        # for filename, nrows, ncols, nk in zip(filenames, nnrows, nncols, nks):
+        #     print(f'  generating file {filename} ...')
+        #     setcover_generator.sup_generator(nrows, ncols, nk, filename=filename)
 
         print('done.')
 
     elif args.problem == 'indset':
-        n0 = 300
+        n0 = 350
         affinity = 4
         dir = f'data/instances/indset_{n0}n_{affinity}a_{args.seed}se/'
         if not os.path.isdir(dir):
@@ -883,9 +937,9 @@ if __name__ == '__main__':
         filenames = []
         nnodess = []
 
-        number_of_nodes = 600
+        number_of_nodes = 400
         # train instances
-        n = 500
+        n = 20
         lp_dir = os.path.join(dir, f'train_{number_of_nodes}n/')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -893,7 +947,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # validation instances
-        n = 50
+        n = 10
         lp_dir = os.path.join(dir, f'valid_{number_of_nodes}n/')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -901,7 +955,7 @@ if __name__ == '__main__':
         nnodess.extend([number_of_nodes] * n)
 
         # test instances
-        n = 50
+        n = 10
         lp_dir = os.path.join(dir, f'test_{number_of_nodes}n/')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
@@ -933,151 +987,137 @@ if __name__ == '__main__':
 
         print("done.")
 
-    elif args.problem == 'fcfn':
-        #todo: finish fcfn
-        number_of_items = 100
-        number_of_bids = 500
-        filenames = []
-        nitemss = []
-        nbidss = []
+    elif args.problem == 'fcnf':
+        n0 = 500
+        K = 50
+        assert 2 * K <= n0
+        dir = f'data/instances/fcnf_{n0}n_{K}k_{args.seed}se/'
+        if not os.path.isdir(dir):
+            os.makedirs(dir)
+        fcnf_generator = FCNF(n0, K, args.seed)
 
+        filenames = []
+        nnodes = []
+
+        nodes = 500
         # train instances
-        n = 10000
-        lp_dir = f'data/instances/cauctions/train_{number_of_items}_{number_of_bids}'
+        n = 10
+        lp_dir = os.path.join(dir, f'train_{nodes}n/')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
-        nitemss.extend([number_of_items] * n)
-        nbidss.extend([number_of_bids ] * n)
+        nnodes.extend([nodes] * n)
 
         # validation instances
-        n = 2000
-        lp_dir = f'data/instances/cauctions/valid_{number_of_items}_{number_of_bids}'
-        print(f"{n} instances in {lp_dir}")
-        os.makedirs(lp_dir)
-        filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
-        nitemss.extend([number_of_items] * n)
-        nbidss.extend([number_of_bids ] * n)
-
-        # small transfer instances
-        n = 100
-        number_of_items = 100
-        number_of_bids = 500
-        lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
-        print(f"{n} instances in {lp_dir}")
-        os.makedirs(lp_dir)
-        filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
-        nitemss.extend([number_of_items] * n)
-        nbidss.extend([number_of_bids ] * n)
-
-        # medium transfer instances
-        n = 100
-        number_of_items = 200
-        number_of_bids = 1000
-        lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
-        print(f"{n} instances in {lp_dir}")
-        os.makedirs(lp_dir)
-        filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
-        nitemss.extend([number_of_items] * n)
-        nbidss.extend([number_of_bids ] * n)
-
-        # big transfer instances
-        n = 100
-        number_of_items = 300
-        number_of_bids = 1500
-        lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
-        print(f"{n} instances in {lp_dir}")
-        os.makedirs(lp_dir)
-        filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
-        nitemss.extend([number_of_items] * n)
-        nbidss.extend([number_of_bids ] * n)
-
-        # test instances
-        n = 2000
-        number_of_items = 100
-        number_of_bids = 500
-        lp_dir = f'data/instances/cauctions/test_{number_of_items}_{number_of_bids}'
-        print(f"{n} instances in {lp_dir}")
-        os.makedirs(lp_dir)
-        filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
-        nitemss.extend([number_of_items] * n)
-        nbidss.extend([number_of_bids ] * n)
+        # n = 10
+        # lp_dir = f'data/instances/cauctions/valid_{number_of_items}_{number_of_bids}'
+        # print(f"{n} instances in {lp_dir}")
+        # os.makedirs(lp_dir)
+        # filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
+        # nitemss.extend([nnodes] * n)
+        #
+        # # small transfer instances
+        # n = 100
+        # number_of_items = 100
+        # number_of_bids = 500
+        # lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
+        # print(f"{n} instances in {lp_dir}")
+        # os.makedirs(lp_dir)
+        # filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
+        # nitemss.extend([number_of_items] * n)
+        # nbidss.extend([number_of_bids ] * n)
+        #
+        # # medium transfer instances
+        # n = 100
+        # number_of_items = 200
+        # number_of_bids = 1000
+        # lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
+        # print(f"{n} instances in {lp_dir}")
+        # os.makedirs(lp_dir)
+        # filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
+        # nitemss.extend([number_of_items] * n)
+        # nbidss.extend([number_of_bids ] * n)
+        #
+        # # big transfer instances
+        # n = 100
+        # number_of_items = 300
+        # number_of_bids = 1500
+        # lp_dir = f'data/instances/cauctions/transfer_{number_of_items}_{number_of_bids}'
+        # print(f"{n} instances in {lp_dir}")
+        # os.makedirs(lp_dir)
+        # filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
+        # nitemss.extend([number_of_items] * n)
+        # nbidss.extend([number_of_bids ] * n)
+        #
+        # # test instances
+        # n = 2000
+        # number_of_items = 100
+        # number_of_bids = 500
+        # lp_dir = f'data/instances/cauctions/test_{number_of_items}_{number_of_bids}'
+        # print(f"{n} instances in {lp_dir}")
+        # os.makedirs(lp_dir)
+        # filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
+        # nitemss.extend([number_of_items] * n)
+        # nbidss.extend([number_of_bids ] * n)
 
         # actually generate the instances
-        for filename, nitems, nbids in zip(filenames, nitemss, nbidss):
+        for filename, n in zip(filenames, nnodes):
             print(f"  generating file {filename} ...")
-            generate_cauctions(rng, filename, n_items=nitems, n_bids=nbids, add_item_prob=0.7)
+            fcnf_generator.generate_fcnf(n, filename)
 
         print("done.")
 
     elif args.problem == 'facility':
-        n_c0 = 100
-        n_f0 = 50
+        n_c = 100
+        n_f = 100
+        c_max = 200
         ratio = 5
-        dir = f'data/instances/facility_{n_c0}c_{n_f0}f_{ratio}r_{args.seed}se'
+
+        dir = f'data/instances/facility_{n_c}c_{n_f}f_{ratio}r_{args.seed}se'
         if not os.path.isdir(dir):
             os.makedirs(dir)
-        facility_generator = facility(n_c0, n_f0, ratio, args.seed)
+        facility_generator = facility(n_c, n_f, c_max, ratio, args.seed)
 
-        n_c = 100
-        n_f = 50
         filenames = []
         ncustomerss = []
-        nfacilitiess = []
 
         # train instances
-        n = 20
+        n = 500
         lp_dir = os.path.join(dir, f'train_{n_c}c_{n_f}f')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
         ncustomerss.extend([n_c] * n)
-        nfacilitiess.extend([n_f] * n)
 
         # validation instances
-        n = 20
+        n = 40
         lp_dir = os.path.join(dir, f'valid_{n_c}c_{n_f}f')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i+1}.lp') for i in range(n)])
         ncustomerss.extend([n_c] * n)
-        nfacilitiess.extend([n_f] * n)
 
         # test instances
-        n = 10
+        n = 50
         lp_dir = os.path.join(dir, f'test_{n_c}c_{n_f}f')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i + 1}.lp') for i in range(n)])
         ncustomerss.extend([n_c] * n)
-        nfacilitiess.extend([n_f] * n)
 
         # transfer instances
         n = 10
-        n_c = 200
-        n_f = 100
+        n_c = 100
         lp_dir = os.path.join(dir, f'transfer_{n_c}c_{n_f}f')
         print(f"{n} instances in {lp_dir}")
         os.makedirs(lp_dir)
         filenames.extend([os.path.join(lp_dir, f'instance_{i + 1}.lp') for i in range(n)])
         ncustomerss.extend([n_c] * n)
-        nfacilitiess.extend([n_f] * n)
-
-        # transfer instances
-        n = 10
-        n_c = 400
-        n_f = 200
-        lp_dir = os.path.join(dir, f'transfer_{n_c}c_{n_f}f')
-        print(f"{n} instances in {lp_dir}")
-        os.makedirs(lp_dir)
-        filenames.extend([os.path.join(lp_dir, f'instance_{i + 1}.lp') for i in range(n)])
-        ncustomerss.extend([n_c] * n)
-        nfacilitiess.extend([n_f] * n)
 
 
         # actually generate the instances
-        for filename, ncs, nfs in zip(filenames, ncustomerss, nfacilitiess):
+        for filename, ncs in zip(filenames, ncustomerss):
             print(f"  generating file {filename} ...")
-            facility_generator.generate(ncs, nfs, filename)
+            facility_generator.generate(ncs, filename)
 
         print("done.")
