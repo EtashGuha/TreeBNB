@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse
 import sys, pickle
 import networkx as nx
-sys.path.append('..')
+sys.path.append('../../../..')
 from itertools import combinations
 
 def valid_seed(seed):
@@ -837,7 +837,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     rng = np.random.RandomState(args.seed)
-
+    os.chdir("../")
     if args.problem == 'setcover':
         nrows0 = 400
         nrows = 500
@@ -856,7 +856,7 @@ if __name__ == '__main__':
 
         # train instances
         n = 2
-        print(dir)
+
         lp_dir = os.path.join(dir, f'train_{nrows}r_{ncols}c/')
         print(lp_dir)
         print(f"{n} instances in {lp_dir}")

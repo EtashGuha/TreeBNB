@@ -5,7 +5,7 @@ from treelib import Tree
 import networkx as nx
 import dgl
 import copy
-from nodeutil import nodeData, getNodeFeature, _build_tree, setRoot
+from utilities.nodeutil import nodeData, getNodeFeature, _build_tree, setRoot
 import faulthandler
 faulthandler.enable()
 import matplotlib.pyplot as plt
@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch.optim as optim
 import os
 import numpy as np
-from utilities import probing_features_extraction
+from utilities.utilities import probing_features_extraction
 from copy import deepcopy
 class TreeBranch(Branchrule):
     def __init__(self, model, policy, loss=nn.CrossEntropyLoss(), device=torch.device('cpu'), dataset=None, mu = .5, train=True):
@@ -129,27 +129,7 @@ class TreeBranch(Branchrule):
                 (dgltree, deepcopy(self.cand_indeces), deepcopy(self.default_gains), branch_cands[0][label].getIndex(), label))
 
         self.branching(branch_cands[0][best_var])
-        #
-        # if self.train and not pre_calculated:
-        #     best_in = np.argmax(tree_scores.detach().numpy())
-        #     if label == best_in:
-        #         self.num_right += 1
-        #     self.optimizer.zero_grad()
-        #     tree_scores = tree_scores.unsqueeze(0)
-        #     label = torch.tensor(label).unsqueeze(0)
-        #     loss = self.loss(tree_scores, label)
-        #
-        #     self.total_loss *= self.num_example
-        #     self.total_loss += loss.item()
-        #     self.num_example += 1
-        #     self.total_loss = self.total_loss / self.num_example
-        #     loss.backward()
-        #     self.optimizer.step()
-        #
-        # if self.train:
-        #     if os.path.exists(self.save_path):
-        #         os.remove(self.save_path)
-        #     torch.save(self.policy.state_dict(), self.save_path)
+
         return {'result': SCIP_RESULT.BRANCHED}
 
     def getFullStrong(self):
@@ -183,22 +163,6 @@ class TreeBranch(Branchrule):
             down_gain, down_score, down_sol, down_var_UB, down_var_LB = \
                 probing_features_extraction(self.model, i, self.branch_cand, rounding_direction='down')
 
-            # frac_data = model.getVarStrongbranchFrac(self.branch_cand[0][i], 1)
-
-            # cutOff and domainRed
-            # if up_score == self.model.infinity() or down_score == self.model.infinity():
-            #     if up_score == self.model.infinity() and down_score == self.model.infinity():
-            #         # cutoff
-            #         self.num_cutoff += 1
-            #         break
-            #     elif down_score == self.model.infinity():
-            #         self.model.tightenVarLb(self.branch_cand[0][i], int(np.ceil(self.branch_cand[1][i])), force=True)
-            #         self.num_reddom += 1
-            #         break
-            #     else:
-            #         self.model.tightenVarUb(self.branch_cand[0][i], int(np.floor(self.branch_cand[1][i])), force=True)
-            #         self.num_reddom += 1
-            #         break
             gains = [down_gain, up_gain, 0]
             scaled_gains = [down_gain/(variable.getLPSol() - int(np.floor(variable.getLPSol()))), up_gain/(int(np.ceil(variable.getLPSol())) - variable.getLPSol()), 0]
             total_gains.append(scaled_gains)

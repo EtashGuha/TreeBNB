@@ -1,3 +1,5 @@
+import os, sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
     Branchrule, Nodesel
 
@@ -9,7 +11,7 @@ from treelib import Tree
 import networkx as nx
 import dgl
 import copy
-from nodeutil import nodeData, getNodeFeature, _build_tree
+from utilities.nodeutil import nodeData, getNodeFeature, _build_tree
 import faulthandler
 faulthandler.enable()
 import matplotlib.pyplot as plt
