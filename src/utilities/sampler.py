@@ -126,12 +126,9 @@ class rankSampler():
             total_samples.extend(samples)
             with open(problem_dir + "/sample_rank.pkl", "wb") as f:
                 pickle.dump(total_samples, f)
-            total_samples = []
 
 if __name__ == "__main__":
     sampler = Sampler()
 
     sampler.collect("../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se")
-    # rank_sampler = rankSampler()
-    # rank_sampler.collect("../realsingle")
 

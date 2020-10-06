@@ -14,11 +14,6 @@ import copy
 from utilities.nodeutil import nodeData, getNodeFeature, _build_tree
 import faulthandler
 faulthandler.enable()
-import matplotlib.pyplot as plt
-
-import copy
-
-
 
 class MyNodesel(Nodesel):
     def __init__(self, model, policy, dataset=None, step_ids=None):

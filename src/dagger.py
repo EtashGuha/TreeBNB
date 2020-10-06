@@ -160,7 +160,7 @@ class Dagger():
         if def_nodes is not None:
             log += ", Default: " + ''.join(intersperse([str(v) for v in def_nodes], ","))
         log = log + "\n"
-        file_object = open('../log/log.txt', 'a')
+        file_object = open('log/log.txt', 'a')
         file_object.write(log)
         file_object.close()
 
@@ -306,6 +306,7 @@ class RankDagger(Dagger):
               (0, running_loss / len(s_loader)))
 
         self.write_to_log_file("Test", problems, total_num_right/total_num_cases, running_loss / len(s_loader))
+
 class TreeDagger(Dagger):
     def __init__(self, selector, problem_dir, device, val_dir, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path)
@@ -321,14 +322,13 @@ class TreeDagger(Dagger):
         num_problems = 0
         with torch.no_grad():
             for problem in real_problems:
-                print(problem)
 
                 temp_features, step_ids, ourNodeSel = self.solveModel(problem)
                 self.listNNodes.append(self.model.getNNodes())
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
 
-                samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_past=0)
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
 
                 if self.isScippable():
                     continue
@@ -343,7 +343,7 @@ class TreeDagger(Dagger):
                         label = labels[i]
                         _, indices = torch.max(output, 0)
                         if indices.item() == label.item():
-                            number_right += 1 / samples
+                            number_right += 1 / len(samples)
         return number_right/num_problems
 
 
@@ -373,7 +373,7 @@ class TreeDagger(Dagger):
 
         return temp_features, step_ids, ourNodeSel
 
-    def addTreeData(self, ourNodeSel, temp_features, step_ids, num_past=1500, num_nodes=None):
+    def addTreeData(self, ourNodeSel, temp_features, step_ids):
         self.debug = []
         self.soracle = []
         self.sfeature_list = []
@@ -440,7 +440,7 @@ class TreeDagger(Dagger):
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
 
-                samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_nodes=self.model.getNNodes())
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
 
                 if len(samples) == 0:
                     continue

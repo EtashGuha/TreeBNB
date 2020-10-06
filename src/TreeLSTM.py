@@ -63,7 +63,6 @@ class TreeLSTM(nn.Module):
         self.linear = nn.Sequential(
             nn.Linear(h_size, 1)
         )
-        # self.linear = nn.Linear(h_size, 1)
         self.smax = nn.Softmax(dim=0)
         self.device = device
 
@@ -101,8 +100,6 @@ class TreeLSTM(nn.Module):
         dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
         dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
 
-        #TRY BELIEF PROPOGATION
-        # compute logits
         h = g.ndata['h']
         ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
         tas = self.linear(h).squeeze(0)
@@ -111,9 +108,6 @@ class TreeLSTM(nn.Module):
         nonZeroed = vals[vals.nonzero()]
         probs = nonZeroed.squeeze(dim=1)
         return probs, ids
-    #Leaf to the root and then go back to leaf
-    #Supervised learning to initialize
-    #Use dagger sampling to improve
 
 class ShallowLib(nn.Module):
     def __init__(self, in_dim):
@@ -205,7 +199,6 @@ class TreeLSTMBranch(nn.Module):
                 pseudodown = gains[i][0]
                 pseudoup = gains[i][1]
                 score_val = (1 - self.mu) * min(pseudodown, pseudodown) + self.mu * max(pseudodown, pseudoup)
-                #use shallow neural net to calc score with
                 score = torch.tensor([score_val], dtype=torch.float, requires_grad=True)
             else:
                 pseudodown = torch.dot(history,down_scores)/torch.sum(history)
