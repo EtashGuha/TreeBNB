@@ -2,6 +2,7 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
     Branchrule
 import torch
 import numpy as np
+import argparse
 
 def probing_features_extraction(model, idx, branch_cand, rounding_direction):
     """ get probing features """
@@ -215,3 +216,12 @@ def personalize_scip(model, seed,
     # if asked, disable propagation heuristics
     if not propagator:
         model.disablePropagation(False)
+
+
+def valid_seed(seed):
+    """Check whether seed is a valid random seed or not."""
+    seed = int(seed)
+    if seed < 0 or seed > 2**32 - 1:
+        raise argparse.ArgumentTypeError(
+                "seed must be any integer between 0 and 2**32 - 1 inclusive")
+    return seed
