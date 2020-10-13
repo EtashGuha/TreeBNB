@@ -16,7 +16,6 @@ from brancher import TreeBranch
 import torch
 import sys
 from dagger import branchDagger,  tree_offline
-from utilities import init_scip_params
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # hyper parameters
 x_size = 14

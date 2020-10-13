@@ -27,3 +27,4 @@
 14/09/2020 15:11:53: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se, Accuracy: 3.06, Loss: 0.08, Description: supervised
 17/09/2020 12:30:32: Type: Train, Model Name: TreeOffline, Data Path: ../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se, Accuracy: 16.98, Loss: 0.07, Description: supervised
 06/10/2020 17:47:59: Type: Train, Model Name: TreeDagger, Data Path: /Users/etashguha/Documents/TreeBNB/data/instances/indset_350n_4a_0se/train_400n, Accuracy: 53.67, Loss: 0.00, Description: Training on large instances for 500 cases, NumNodes: 1,4,39,1,1,3,14,1,1,53,20,1,3,1,9,1,10,1,1,4,1,9,15,1,1,13,86,6,1,207,15,1,3,1,10,1,10,1,1,4
+13/10/2020 16:02:10: Type: Test, Model Name: TreeOffline, Data Path: ../data/instances/setcover/test_100r_200c_0.1d_5mc_10se, Accuracy: -100.00, Loss: -1.00, Description: supervised, Default: 
