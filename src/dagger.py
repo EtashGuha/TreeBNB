@@ -320,11 +320,13 @@ class TreeDagger(Dagger):
         real_problems = glob.glob(self.val_dir + "/*.lp")
         number_right = 0
         num_problems = 0
+        nodes_needed = 0
         with torch.no_grad():
             for problem in real_problems:
 
                 temp_features, step_ids, ourNodeSel = self.solveModel(problem)
                 self.listNNodes.append(self.model.getNNodes())
+                nodes_needed += self.model.getNNodes()
                 if len(ourNodeSel.tree.all_nodes()) < 2:
                     continue
 
@@ -335,6 +337,7 @@ class TreeDagger(Dagger):
 
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=False, collate_fn=collate)
                 num_problems += 1
+
                 for (bg, labels, weights) in s_loader:
                     self.optimizer.zero_grad()
                     unbatched, outputs = self.compute(bg)
@@ -344,7 +347,7 @@ class TreeDagger(Dagger):
                         _, indices = torch.max(output, 0)
                         if indices.item() == label.item():
                             number_right += 1 / len(samples)
-        return number_right/num_problems
+        return number_right/num_problems, nodes_needed
 
 
     def solveModel(self, problem, default=False, to_train=True):
@@ -429,6 +432,8 @@ class TreeDagger(Dagger):
         torch.cuda.empty_cache()
         counter = 0
         problems = glob.glob(self.problem_dir + "/*.lp")
+        print(self.problem_dir)
+        print(problems)
         for total_epoch in range(self.num_repeat):
             for problem in problems:
                 torch.cuda.empty_cache()
@@ -475,9 +480,9 @@ class TreeDagger(Dagger):
                 torch.save(self.policy.state_dict(), self.save_path)
 
                 if counter % 10 == 0:
-                    val_accuracy = self.validate()
-                    print('[%d] loss: %.3f accuracy: %.3f' %
-                          (total_epoch + 1, 0, val_accuracy))
+                    val_accuracy, nodes_needed = self.validate()
+                    print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
+                          (total_epoch + 1, 0, val_accuracy, nodes_needed))
 
         self.write_to_log_file("Train", self.problem_dir, val_accuracy, 0)
 
