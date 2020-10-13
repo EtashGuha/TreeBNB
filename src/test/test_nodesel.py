@@ -1,5 +1,7 @@
 import torch.sparse
 import faulthandler
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from TreeLSTM import TreeLSTMCell, TreeLSTM, LinLib, ShallowLib
 from dagger import TreeDagger, RankDagger, branchDagger
 import pickle
