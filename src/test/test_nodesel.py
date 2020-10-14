@@ -34,13 +34,16 @@ if mode == "tree":
                            device=device)
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
-    if os.path.exists("../lstmFeature.pt"):
-        lstmFeature.load_state_dict(torch.load("../lstmFeature.pt"))
-    my_dagger = TreeDagger(lstmFeature, "data/instances/setcover_0.05d_100mc_0se/train_500r_1000c", device,
-                           "data/instances/setcover_0.05d_100mc_0se/valid_500r_1000c", num_repeat=1, num_train=1000,
-                           num_epoch=4, save_path="../lstmFeature.pt")
+    print(os.path.abspath("models/lstmFeature.pt"))
+    print(os.path.exists("models/lstmFeature.pt"))
+    if os.path.exists("model/lstmFeature.pt"):
+        print("Loading previous model")
+        lstmFeature.load_state_dict(torch.load("models/lstmFeature.pt"))
+    my_dagger = TreeDagger(lstmFeature, "data/instances/indset_400n_4a_0se/train_600n", device,
+                           "data/instances/indset_400n_4a_0se/valid_600n", num_repeat=1, num_train=1000,
+                           num_epoch=4, save_path="models/lstmFeature.pt")
     my_dagger.setDescription("testing on large instances for 500 cases")
-    tree_vals, def_vals = my_dagger.test("data/instances/indset_350n_4a_0se/test_400n/")
+    tree_vals, def_vals = my_dagger.test("data/instances/indset_400n_4a_0se/test_600n")
     print(tree_vals)
     print(def_vals)
 # create the model

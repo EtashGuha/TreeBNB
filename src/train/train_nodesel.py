@@ -25,7 +25,7 @@ if mode == "tree":
 
     my_dagger = TreeDagger(lstmFeature, "data/instances/indset_400n_4a_0se/train_600n", device,
                            "data/instances/indset_400n_4a_0se/valid_600n", num_repeat=1, num_train=1000, num_epoch=4,
-                           save_path="../lstmFeature.pt")
+                           save_path="models/lstmFeature.pt")
     my_dagger.setDescription("Training on large instances for 500 cases")
     my_dagger.train()
 
@@ -36,7 +36,7 @@ elif mode == "baseline":
 
     my_dagger = RankDagger(lstmFeature, "../data/instances/setcover/train_100r_200c_0.1d_5mc_10se/", device,
                            num_repeat=1,
-                           num_train=1000, num_epoch=1, save_path="../lstmFeatureRank.pt")
+                           num_train=1000, num_epoch=1, save_path="models/lstmFeatureRank.pt")
     my_dagger.setDescription("First Run")
 
     my_dagger.train()
@@ -51,6 +51,6 @@ elif mode == "tree_super":
     offline = tree_offline(lstmFeature, "../data/instances/setcover/train_500r_1000c_0.05d_100mc_0se", device,
                            "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se",
                            "../data/instances/setcover/valid_500r_1000c_0.05d_100mc_0se", num_repeat=1,
-                           num_train=1000, num_epoch=7, save_path="../lstmFeature.pt")
+                           num_train=1000, num_epoch=7, save_path="models/lstmFeature.pt")
     offline.setDescription("supervised")
     offline.train()
