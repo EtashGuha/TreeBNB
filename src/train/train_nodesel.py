@@ -6,7 +6,7 @@ import torch
 from dagger import branchDagger, tree_offline
 import sys
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:5" if torch.cuda.is_available() else "cpu")
 
 x_size = 14
 h_size = 14

@@ -16,7 +16,7 @@ from brancher import TreeBranch
 import torch
 import sys
 from dagger import branchDagger,  tree_offline
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:5" if torch.cuda.is_available() else "cpu")
 # hyper parameters
 x_size = 14
 h_size = 14
