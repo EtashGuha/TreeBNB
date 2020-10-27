@@ -23,8 +23,8 @@ if mode == "tree":
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
 
-    my_dagger = TreeDagger(lstmFeature, "/localscratch/collections", device,
-                           "/localscratch/collections_val", num_repeat=1, num_train=1000, num_epoch=4,
+    my_dagger = TreeDagger(lstmFeature, "/localscratch/eguha3/collections", device,
+                           "/localscratch/eguha3/collections_val", num_repeat=1, num_train=1000, num_epoch=4,
                            save_path="models/lstmFeature.pt", problem_type="mps")
     my_dagger.setDescription("Training on large instances for 500 cases")
     my_dagger.train()
