@@ -440,7 +440,10 @@ class TreeDagger(Dagger):
                 torch.cuda.empty_cache()
 
                 counter += 1
-                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                try:
+                    temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                except:
+                    continue
                 self.listNNodes.append(self.model.getNNodes())
 
                 if len(ourNodeSel.tree.all_nodes()) < 2:
@@ -478,10 +481,7 @@ class TreeDagger(Dagger):
 
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
-                print(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
-                print(os.path.abspath(self.save_path))
-                print("YAYA")
                 if counter % 10 == 0:
                     val_accuracy, nodes_needed = self.validate()
                     print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
