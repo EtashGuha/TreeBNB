@@ -75,9 +75,10 @@ class Dagger():
     def __init__(self, selector, problem_dir, device, loss, num_train=None, num_epoch = 3, num_repeat=1, batch_size=5, save_path=None, problem_type="lp"):
         self.policy = selector
         self.save_path = save_path
-        self.problem_dir = os.getcwd() + "/" + problem_dir
+        self.problem_dir = os.path.join(os.getcwd() , problem_dir)
         self.problem_type = problem_type
-        self.problems = glob.glob(problem_dir + "/*." + self.problem_type)
+
+        self.problems = glob.glob(os.path.join(problem_dir, "/*." + self.problem_type))
         if num_train is None:
             self.num_train = len(self.problems)
         else:
