@@ -72,12 +72,12 @@ def size_splits(tensor, split_sizes, dim=0):
                  for start, length in zip(splits, split_sizes))
 
 class Dagger():
-    def __init__(self, selector, problem_dir, device, loss, num_train=None, num_epoch = 3, num_repeat=1, batch_size=5, save_path=None):
+    def __init__(self, selector, problem_dir, device, loss, num_train=None, num_epoch = 3, num_repeat=1, batch_size=5, save_path=None, problem_type="lp"):
         self.policy = selector
         self.save_path = save_path
         self.problem_dir = os.getcwd() + "/" + problem_dir
-
-        self.problems = glob.glob(problem_dir + "/*.lp")
+        self.problem_type = problem_type
+        self.problems = glob.glob(problem_dir + "/*." + self.problem_type)
         if num_train is None:
             self.num_train = len(self.problems)
         else:
@@ -112,7 +112,7 @@ class Dagger():
 
     def test(self, problems, MyNodesel):
         with torch.no_grad():
-            real_problems = glob.glob(problems + "/*.lp")
+            real_problems = glob.glob(problems + "/*." + self.problem_type)
             num_nodes = []
             solving_times_us = []
             solving_times_def = []
@@ -166,7 +166,7 @@ class Dagger():
 
     def test(self, problems):
         with torch.no_grad():
-            real_problems = glob.glob(problems + "/*.lp")
+            real_problems = glob.glob(problems + "/*." + self.problem_type)
             num_nodes = []
             default = []
             for problem in real_problems:
@@ -285,7 +285,7 @@ class RankDagger(Dagger):
 
 
     def testAccuracy(self, problems):
-        real_problems = glob.glob(problems + "/*.lp")
+        real_problems = glob.glob(problems + "/*." + self.problem_type)
         total_num_cases = 0
         total_num_right = 0
         for problem in real_problems:
@@ -308,8 +308,8 @@ class RankDagger(Dagger):
         self.write_to_log_file("Test", problems, total_num_right/total_num_cases, running_loss / len(s_loader))
 
 class TreeDagger(Dagger):
-    def __init__(self, selector, problem_dir, device, val_dir, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1):
-        super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path)
+    def __init__(self, selector, problem_dir, device, val_dir, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1, problem_type="lp"):
+        super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path, problem_type=problem_type)
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
         self.time_limit = 60
@@ -317,7 +317,7 @@ class TreeDagger(Dagger):
         self.val_dir = val_dir
 
     def validate(self):
-        real_problems = glob.glob(self.val_dir + "/*.lp")
+        real_problems = glob.glob(self.val_dir + "/*." + self.problem_type)
         number_right = 0
         num_problems = 0
         nodes_needed = 0
@@ -431,7 +431,7 @@ class TreeDagger(Dagger):
         self.policy.train()
         torch.cuda.empty_cache()
         counter = 0
-        problems = glob.glob(self.problem_dir + "/*.lp")
+        problems = glob.glob(self.problem_dir + "/*." + self.problem_type)
         print(self.problem_dir)
         print(problems)
         for total_epoch in range(self.num_repeat):
@@ -489,7 +489,7 @@ class TreeDagger(Dagger):
         self.write_to_log_file("Train", self.problem_dir, val_accuracy, 0)
 
     def testAccuracy(self, problems):
-        real_problems = glob.glob(problems + "/*.lp")
+        real_problems = glob.glob(problems + "/*." + self.problem_type)
         number_right = 0
         num_problems = 0
         with torch.no_grad():
@@ -597,7 +597,7 @@ class branchDagger(Dagger):
 
     def testAccuracy(self, problems):
         with torch.no_grad():
-            real_problems = glob.glob(problems + "/*.lp")
+            real_problems = glob.glob(problems + "/*." + self.problem_type)
             self.sfeature_list = []
             for problem in real_problems:
                 print(problem)
