@@ -19,9 +19,9 @@ from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTI
 import glob
 from utilities.utilities import init_scip_params, init_scip_params_haoran, personalize_scip
 from brancher import TreeBranch
-
+import faulthandler
 import os
-
+faulthandler.enable()
 os.chdir("../")
 torch.set_printoptions(precision=10)
 def intersperse(lst, item):
@@ -324,7 +324,7 @@ class TreeDagger(Dagger):
         nodes_needed = 0
         with torch.no_grad():
             for problem in real_problems:
-
+                print(problem)
                 temp_features, step_ids, ourNodeSel = self.solveModel(problem)
                 self.listNNodes.append(self.model.getNNodes())
                 nodes_needed += self.model.getNNodes()
@@ -453,34 +453,34 @@ class TreeDagger(Dagger):
                 if len(samples) == 0:
                     continue
 
-                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
-                for epoch in range(self.num_epoch):
-                    for (bg, labels, weights) in s_loader:
-                        self.optimizer.zero_grad()
-
-                        unbatched, outputs = self.compute(bg)
-                        total_loss = None
-                        for i in range(len(unbatched)):
-                            output = outputs[i]
-                            label = labels[i]
-
-                            _, indices = torch.max(output, 0)
-                            output = output.unsqueeze(0)
-                            label = label.unsqueeze(0)
-                            loss = self.loss(output, label.to(device=self.device))
-                            if total_loss == None:
-                                total_loss = loss
-                            else:
-                                total_loss = total_loss + loss
-
-                        self.optimizer.zero_grad()
-                        total_loss.backward()
-                        self.optimizer.step()
-                    torch.cuda.empty_cache()
-
-                if os.path.exists(self.save_path):
-                    os.remove(self.save_path)
-                torch.save(self.policy.state_dict(), self.save_path)
+                # s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=True, collate_fn=collate)
+                # for epoch in range(self.num_epoch):
+                #     for (bg, labels, weights) in s_loader:
+                #         self.optimizer.zero_grad()
+                #
+                #         unbatched, outputs = self.compute(bg)
+                #         total_loss = None
+                #         for i in range(len(unbatched)):
+                #             output = outputs[i]
+                #             label = labels[i]
+                #
+                #             _, indices = torch.max(output, 0)
+                #             output = output.unsqueeze(0)
+                #             label = label.unsqueeze(0)
+                #             loss = self.loss(output, label.to(device=self.device))
+                #             if total_loss == None:
+                #                 total_loss = loss
+                #             else:
+                #                 total_loss = total_loss + loss
+                #
+                #         self.optimizer.zero_grad()
+                #         total_loss.backward()
+                #         self.optimizer.step()
+                #     torch.cuda.empty_cache()
+                #
+                # if os.path.exists(self.save_path):
+                #     os.remove(self.save_path)
+                # torch.save(self.policy.state_dict(), self.save_path)
                 if counter % 10 == 0:
                     val_accuracy, nodes_needed = self.validate()
                     print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
