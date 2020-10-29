@@ -23,8 +23,12 @@ if mode == "tree":
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
 
-    my_dagger = TreeDagger(lstmFeature, "/localscratch/eguha3/collections", device,
-                           "/localscratch/eguha3/collections_val", num_repeat=1, num_train=1000, num_epoch=4,
+    if os.path.exists("model/lstmFeature.pt"):
+        print("Loading previous model")
+        lstmFeature.load_state_dict(torch.load("models/lstmFeature.pt"))
+
+    my_dagger = TreeDagger(lstmFeature, "data/test", device,
+                           "data/test", num_repeat=1, num_train=1000, num_epoch=4,
                            save_path="models/lstmFeature.pt", problem_type="mps")
     my_dagger.setDescription("Training on large instances for 500 cases")
     my_dagger.train()
