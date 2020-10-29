@@ -433,14 +433,13 @@ class TreeDagger(Dagger):
         torch.cuda.empty_cache()
         counter = 0
         problems = glob.glob(self.problem_dir + "/*." + self.problem_type)
-        print(self.problem_dir)
-        print(problems)
         for total_epoch in range(self.num_repeat):
             for problem in problems:
                 torch.cuda.empty_cache()
 
                 counter += 1
                 try:
+                    print(problem)
                     temp_features, step_ids, ourNodeSel = self.solveModel(problem)
                 except:
                     continue
