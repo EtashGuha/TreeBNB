@@ -168,18 +168,25 @@ class Dagger():
             real_problems = glob.glob(problems + "/*." + self.problem_type)
             num_nodes = []
             default = []
+
+            solving_times_us = []
+            solving_times_def = []
+            self.model.setIntParam('timing/clocktype', 2)
+
             for problem in real_problems:
                 print(problem)
                 self.solveModel(problem, to_train=False)
                 num_nodes.append(self.model.getNNodes())
                 self.listNNodes = num_nodes
+                solving_times_us.append(self.model.getSolvingTime())
             for problem in real_problems:
                 print(problem)
                 self.solveModel(problem, to_train=False, default=True)
                 default.append(self.model.getNNodes())
+                solving_times_def.append(self.model.getSolvingTime())
         self.write_to_log_file("Test", problems, -1, -1, def_nodes=default)
 
-        return num_nodes, default
+        return num_nodes, default, solving_times_us, solving_times_def
 
 
 
@@ -566,7 +573,6 @@ class branchDagger(Dagger):
 
         for epoch in range(self.num_repeat):
             for problem in self.problems:
-                print(problem)
                 self.solveModel(problem)
                 self.listNNodes.append(self.model.getNNodes())
                 print(self.listNNodes)
