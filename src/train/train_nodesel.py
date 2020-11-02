@@ -6,7 +6,7 @@ import torch
 from dagger import branchDagger, tree_offline
 import sys
 
-device = torch.device("cuda:5" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:7" if torch.cuda.is_available() else "cpu")
 
 x_size = 14
 h_size = 14
@@ -23,13 +23,14 @@ if mode == "tree":
     lstmFeature.to(device)
     lstmFeature.cell.to(device)
 
-    my_dagger = TreeDagger(lstmFeature, "data/instances/indset_400n_4a_0se/train_600n", device,
-                           "data/instances/indset_400n_4a_0se/valid_600n", num_repeat=1, num_train=1000, num_epoch=4,
-                           save_path="models/lstmFeature.pt", problem_type="mps")
-    my_dagger.setDescription("Training on large instances for 500 cases")
+    my_dagger = TreeDagger(lstmFeature, "data/instances/setcover_400r_1000c_0.05d_100mc_0se/train_500r_1000c", device,
+                           "data/instances/setcover_400r_1000c_0.05d_100mc_0se/valid_500r_1000c", num_repeat=1, num_train=1000, num_epoch=4,
+                           save_path="models/lstmFeatureHalf.pt", problem_type="lp")
+    my_dagger.setDescription("Removing half of step")
     my_dagger.train()
 
     print(my_dagger.listNNodes)
+    print(my_dagger.description)
 elif mode == "baseline":
     lstmFeature = LinLib(x_size, device)
     lstmFeature.to(device)

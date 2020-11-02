@@ -181,7 +181,7 @@ class TreeLSTMBranch(nn.Module):
         g.ndata['h'] = h
         g.ndata['c'] = c
         # propagate
-        dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
+        # dgl.prop_nodes_topo(g, reverse=True, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
         dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
         # compute logits
         h = self.linear(g.ndata['h']).squeeze(dim=1)
