@@ -29,6 +29,27 @@ def intersperse(lst, item):
     result[0::2] = lst
     return result
 
+def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end = printEnd)
+    # Print New Line on Complete
+    if iteration == total:
+        print()
+
 def plot_tree(g):
     # this plot requires pygraphviz package
     pos = nx.nx_agraph.graphviz_layout(g, prog='dot')
@@ -435,13 +456,16 @@ class TreeDagger(Dagger):
 
     def train(self):
         self.policy.train()
+
         torch.cuda.empty_cache()
         counter = 0
         problems = glob.glob(self.problem_dir + "/*." + self.problem_type)
+        print(len(problems))
+        printProgressBar(0, len(problems), prefix='Progress:', suffix='Complete', length=50)
         for total_epoch in range(self.num_repeat):
             for problem in problems:
                 torch.cuda.empty_cache()
-
+                printProgressBar(counter, len(problems), prefix='Progress:', suffix='Complete', length=50)
                 counter += 1
                 try:
                     temp_features, step_ids, ourNodeSel = self.solveModel(problem)
