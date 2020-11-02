@@ -318,7 +318,7 @@ class TreeDagger(Dagger):
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path, problem_type=problem_type)
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
-        self.time_limit = 60
+        self.time_limit = 3600
         self.model_name = "TreeDagger"
         self.val_dir = val_dir
 
@@ -487,7 +487,7 @@ class TreeDagger(Dagger):
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
-                if counter % 10 == 0:
+                if counter % 100 == 0:
                     val_accuracy, nodes_needed = self.validate()
                     print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
                           (total_epoch + 1, 0, val_accuracy, nodes_needed))
