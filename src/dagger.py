@@ -339,7 +339,7 @@ class TreeDagger(Dagger):
         super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path, problem_type=problem_type)
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
-        self.time_limit = 3600
+        self.time_limit = 300
         self.model_name = "TreeDagger"
         self.val_dir = val_dir
 
