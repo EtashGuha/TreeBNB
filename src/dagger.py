@@ -329,7 +329,6 @@ class TreeDagger(Dagger):
         nodes_needed = 0
         with torch.no_grad():
             for problem in real_problems:
-                print(problem)
                 temp_features, step_ids, ourNodeSel = self.solveModel(problem)
                 self.listNNodes.append(self.model.getNNodes())
                 nodes_needed += self.model.getNNodes()
@@ -445,7 +444,6 @@ class TreeDagger(Dagger):
 
                 counter += 1
                 try:
-                    print(problem)
                     temp_features, step_ids, ourNodeSel = self.solveModel(problem)
                 except:
                     continue
@@ -487,7 +485,7 @@ class TreeDagger(Dagger):
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
-                if counter % 100 == 0:
+                if counter % 50 == 0:
                     val_accuracy, nodes_needed = self.validate()
                     print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
                           (total_epoch + 1, 0, val_accuracy, nodes_needed))
