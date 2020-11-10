@@ -52,7 +52,7 @@ class Sampler():
                             optimal_id = id
                             break
                     if queue_contains_optimal:
-                        oracle_val = (step_ids== optimal_id).type(torch.uint8).nonzero()[0][0]
+                        oracle_val = (step_ids== optimal_id).type(torch.uint8).nonzero(as_tuple=False)[0][0]
                         self.dataset.append((dgl_tree, oracle_val, 0))
             total_dataset = []
             for i in range(len(self.dataset)):

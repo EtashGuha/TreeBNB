@@ -101,11 +101,11 @@ class TreeLSTM(nn.Module):
         dgl.prop_nodes_topo(g, message_func=self.cell.message_func, reduce_func=self.cell.reduce_func, apply_node_func=self.cell.apply_node_func)
 
         h = g.ndata['h']
-        ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero()]
+        ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero(as_tuple=False)]
         tas = self.linear(h).squeeze(0)
         vals = tas * torch.autograd.Variable(g.ndata["in_queue"].unsqueeze(dim=1))
         vals = vals.squeeze(dim=1)
-        nonZeroed = vals[vals.nonzero()]
+        nonZeroed = vals[vals.nonzero(as_tuple=False)]
         probs = nonZeroed.squeeze(dim=1)
         return probs, ids
 

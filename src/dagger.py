@@ -13,7 +13,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from datetime import datetime
 from NodeSel import MyNodesel, LinNodesel
-from utilities.nodeutil import getListOptimalID, checkIsOptimal
+from utilities.nodeutil import getListOptimalID, checkIsOptimal, getNodeGap
 from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
     Branchrule, Nodesel
 import glob
@@ -363,7 +363,7 @@ class TreeDagger(Dagger):
 
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=False, collate_fn=collate)
                 num_problems += 1
-
+                total_loss
                 for (bg, labels, weights) in s_loader:
                     self.optimizer.zero_grad()
                     unbatched, outputs = self.compute(bg)
@@ -373,7 +373,12 @@ class TreeDagger(Dagger):
                         _, indices = torch.max(output, 0)
                         if indices.item() == label.item():
                             number_right += 1 / len(samples)
-        return number_right/num_problems, nodes_needed
+                        loss = self.loss(output, label.to(device=self.device))
+                        if total_loss == None:
+                            total_loss = loss
+                        else:
+                            total_loss = total_loss + loss
+        return number_right/num_problems, nodes_needed, total_loss
 
 
     def solveModel(self, problem, default=False, to_train=True):
@@ -411,6 +416,7 @@ class TreeDagger(Dagger):
 
         optimal_node = None
         for node in ourNodeSel.tree.leaves():
+
             if checkIsOptimal(node, self.model, ourNodeSel.tree):
                 optimal_node = node
                 break
@@ -450,7 +456,10 @@ class TreeDagger(Dagger):
         c = torch.zeros((n, h_size))
         iou = torch.zeros((n, 3 * h_size))
         outputs, _ = self.policy(g, h, c, iou)
-        outputs = size_splits(outputs, sizes)
+        try:
+            outputs = size_splits(outputs, sizes)
+        except:
+            return None, None
 
         return unbatched, outputs
 
@@ -487,6 +496,8 @@ class TreeDagger(Dagger):
                         self.optimizer.zero_grad()
 
                         unbatched, outputs = self.compute(bg)
+                        if unbatched is None:
+                            continue
                         total_loss = None
                         for i in range(len(unbatched)):
                             output = outputs[i]
@@ -510,9 +521,9 @@ class TreeDagger(Dagger):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
                 if counter % 50 == 0:
-                    val_accuracy, nodes_needed = self.validate()
+                    val_accuracy, nodes_needed, val_loss = self.validate()
                     print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
-                          (total_epoch + 1, 0, val_accuracy, nodes_needed))
+                          (total_epoch + 1, val_loss, val_accuracy, nodes_needed))
 
         self.write_to_log_file("Train", self.problem_dir, val_accuracy, 0)
 

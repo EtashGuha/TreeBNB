@@ -114,8 +114,8 @@ class MyNodesel(Nodesel):
         value = 0, if both nodes are equally good
         value > 0, if node 1 comes after (is worse than) node 2.
         '''
-        node1Idx = (self.ids == node1.getNumber()).nonzero()[0][0]
-        node2Idx = (self.ids == node2.getNumber()).nonzero()[0][0]
+        node1Idx = (self.ids == node1.getNumber()).nonzero(as_tuple=False)[0][0]
+        node2Idx = (self.ids == node2.getNumber()).nonzero(as_tuple=False)[0][0]
         return self.probs[node2Idx] - self.probs[node1Idx]
 
 
@@ -248,7 +248,7 @@ class SamplerNodesel(Nodesel):
             else:
                 optimalNode = self.model.getBestLeaf()
 
-        ids = dgltree.ndata["node_id"][(dgltree.ndata["node_id"] * dgltree.ndata["in_queue"]).nonzero()]
+        ids = dgltree.ndata["node_id"][(dgltree.ndata["node_id"] * dgltree.ndata["in_queue"]).nonzero(as_tuple=False)]
         self.dataset.append((dgltree, ids))
         return {"selnode": optimalNode }
 
