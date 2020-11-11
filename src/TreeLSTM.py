@@ -126,12 +126,20 @@ class LinLib(nn.Module):
         super(LinLib, self).__init__()
         self.fc1 = nn.Linear(in_dim, 1)
         self.device = device
-    def forward(self, x):
-        x = x.to(device=self.device)
-        return self.fc1(x)
+        self.smax= torch.nn.Softmax(dim=0)
+    def forward(self, g):
+        g = g.to(self.device)
+        features = g.ndata["feature"]
+        tas = self.fc1(features)
+        tas = self.smax(tas)
 
+        ids = g.ndata["node_id"][(g.ndata["node_id"] * g.ndata["in_queue"]).nonzero(as_tuple=False)]
+        vals = tas * torch.autograd.Variable(g.ndata["in_queue"].unsqueeze(dim=1))
+        vals = vals.squeeze(dim=1)
+        nonZeroed = vals[vals.nonzero(as_tuple=False)]
+        probs = nonZeroed.squeeze(dim=1)
 
-
+        return probs, ids
 
 class TreeLSTMBranch(nn.Module):
     def __init__(self,

@@ -37,7 +37,6 @@ class MyNodesel(Nodesel):
         iou = torch.zeros((n, 3 * h_size))
 
         return self.policy(g, h, c, iou)
-
     def nodeselect(self):
         '''first method called in each iteration in the main solving loop. '''
         # this method needs to be implemented by the user
@@ -66,12 +65,10 @@ class MyNodesel(Nodesel):
                                                         bound_types=bound_types, branch_bounds=branch_bounds))
                 except:
                     pass
-
         if self.tree.size() != 0:
             g = _build_tree(self.tree, self.model)
         else:
             g = nx.DiGraph()
-
 
         self.id_to_node = dict()
         for node in listOfNodes:
@@ -95,12 +92,12 @@ class MyNodesel(Nodesel):
         if self.step_ids is not None and self.dataset is not None:
             self.step_ids.append(ids)
             self.dataset.append(dgltree)
-
         if len(probs) != 0:
-
             _, indices = torch.max(probs, 0)
             best_id = ids[indices]
             return {"selnode": self.id_to_node[best_id[0].item()]}
+        elif len(listOfNodes) != 0:
+            return {"selnode": listOfNodes[0]}
         else:
             return {"selnode": None}
 
@@ -114,11 +111,11 @@ class MyNodesel(Nodesel):
         value = 0, if both nodes are equally good
         value > 0, if node 1 comes after (is worse than) node 2.
         '''
-        node1Idx = (self.ids == node1.getNumber()).nonzero(as_tuple=False)[0][0]
-        node2Idx = (self.ids == node2.getNumber()).nonzero(as_tuple=False)[0][0]
-        return self.probs[node2Idx] - self.probs[node1Idx]
-
-
+        # pri
+        # node1Idx = (self.ids == node1.getNumber() - 1).nonzero(as_tuple=False)[0][0]
+        # node2Idx = (self.ids == node2.getNumber() - 1).nonzero(as_tuple=False)[0][0]
+        # return self.probs[node2Idx] - self.probs[node1Idx]
+        return 0
 class LinNodesel(Nodesel):
     def __init__(self, model, policy, dataset=None):
         self.policy = policy
@@ -175,6 +172,14 @@ class LinNodesel(Nodesel):
             valTwo = self.policy(getNodeFeature(node2, self.model))
 
         return(valTwo - valOne)
+
+
+class RegressionNodesel(MyNodesel):
+    def __init__(self, model, policy, dataset=None, step_ids=None):
+        super().__init__(model, policy, dataset=dataset, step_ids=step_ids)
+
+    def calcLSTMFeatures(self, g):
+        return self.policy(g)
 
 
 class SamplerNodesel(Nodesel):
@@ -262,7 +267,7 @@ class SamplerNodesel(Nodesel):
         value = 0, if both nodes are equally good
         value > 0, if node 1 comes after (is worse than) node 2.
         '''
-        return -1 * (node2.getLowerbound() - node1.getLowerbound())
+        # return -1 * (node2.getLowerbound() - node1.getLowerbound())
 
 
 

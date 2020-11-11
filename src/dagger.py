@@ -12,8 +12,8 @@ import dgl
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from datetime import datetime
-from NodeSel import MyNodesel, LinNodesel
-from utilities.nodeutil import getListOptimalID, checkIsOptimal, getNodeGap
+from NodeSel import MyNodesel, LinNodesel, RegressionNodesel
+from utilities.nodeutil import getListOptimalID, checkIsOptimal, getNodeGap, getGapValues
 from pyscipopt import Model, Heur, quicksum, multidict, SCIP_RESULT, SCIP_HEURTIMING, SCIP_PARAMSETTING, Sepa, \
     Branchrule, Nodesel
 import glob
@@ -60,7 +60,7 @@ def plot_tree(g):
 def collate(samples):
     graphs, labels, _, weight = map(list, zip(*samples))
     batched_graph = dgl.batch(graphs)
-    return batched_graph, torch.tensor(labels), weight
+    return batched_graph, labels, weight
 
 def collate_undebug(samples):
     graphs, labels, weight = map(list, zip(*samples))
@@ -336,7 +336,7 @@ class RankDagger(Dagger):
 
 class TreeDagger(Dagger):
     def __init__(self, selector, problem_dir, device, val_dir, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1, problem_type="lp"):
-        super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path, problem_type=problem_type)
+        super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train, num_epoch, batch_size, save_path=save_path, problem_type=problem_type)
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
         self.time_limit = 250
@@ -414,6 +414,7 @@ class TreeDagger(Dagger):
         self.sfeature_list = []
         self.weights = []
 
+
         optimal_node = None
         for node in ourNodeSel.tree.leaves():
 
@@ -422,6 +423,8 @@ class TreeDagger(Dagger):
                 break
 
         if optimal_node is not None:
+            nodeToGap = getGapValues(self.model, ourNodeSel.tree)
+
             optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
             for i in range(len(temp_features)):
                 queue_contains_optimal = False
@@ -432,9 +435,21 @@ class TreeDagger(Dagger):
                         queue_contains_optimal = True
                         optimal_id = id
                         break
+
                 if queue_contains_optimal:
                     self.debug.append((optimal_id, step_ids))
-                    oracle_val = (step_ids[i] == optimal_id).type(torch.uint8).nonzero()[0][0]
+                    final_label = []
+                    for id in idlist:
+                        if id in nodeToGap:
+                            final_label.append(nodeToGap[id])
+                    biggest_gap = max(final_label)
+                    final_label = []
+                    for id in idlist:
+                        if id in nodeToGap:
+                            final_label.append(nodeToGap[id])
+                        else:
+                            final_label.append(biggest_gap)
+                    oracle_val = torch.tensor(final_label).type(torch.float32)
                     self.soracle.append(oracle_val)
                     self.sfeature_list.append(temp_features[i])
                     self.weights.append(1/len(temp_features))
@@ -807,3 +822,247 @@ class rankOffline(RankDagger):
         torch.save(self.policy.state_dict(), self.save_path)
         self.write_to_log_file("Train", self.problem_dir, total_num_right/total_num_predict, average_loss/total_num_cases)
 
+class RegressionDagger(Dagger):
+    def __init__(self, selector, problem_dir, device, val_dir, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1, problem_type="lp"):
+        super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train, num_epoch, batch_size, save_path=save_path, problem_type=problem_type)
+        self.nodesel = RegressionNodesel
+        self.num_repeat = num_repeat
+        self.time_limit = 250
+        self.model_name = "RegressionDagger"
+        self.val_dir = val_dir
+        self.softmax = torch.nn.Softmax()
+    def validate(self):
+        real_problems = glob.glob(self.val_dir + "/*." + self.problem_type)
+        print(real_problems)
+        number_right = 0
+        num_problems = 0
+        nodes_needed = 0
+        with torch.no_grad():
+            for problem in real_problems:
+                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
+                nodes_needed += self.model.getNNodes()
+                if len(ourNodeSel.tree.all_nodes()) < 2:
+                    continue
+
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
+
+                if self.isScippable():
+                    continue
+
+                s_loader = DataLoader(samples, batch_size=1, shuffle=False, collate_fn=collate)
+                num_problems += 1
+                total_loss = None
+                for (bg, labels, weights) in s_loader:
+                    self.optimizer.zero_grad()
+                    unbatched, outputs = self.compute(bg)
+                    if unbatched is None:
+                        continue
+                    for i in range(len(unbatched)):
+                        output = outputs[i]
+                        label = labels[i]
+                        _, indices = torch.max(output, 0)
+
+                        _, label_idx =  torch.max(label, 0)
+                        if indices.item() == label_idx.item():
+                            number_right += 1 / len(samples)
+                        loss = self.loss(output, label.to(device=self.device))
+                        if total_loss == None:
+                            total_loss = loss
+                        else:
+                            total_loss = total_loss + loss
+        return number_right/num_problems, nodes_needed, total_loss.item()
+
+
+    def solveModel(self, problem, default=False, to_train=True):
+        temp_features = []
+        torch.autograd.set_detect_anomaly(True)
+        self.model = Model("indset")
+        self.model.hideOutput()
+        step_ids = []
+        ourNodeSel = None
+
+        if not default:
+            if to_train:
+                ourNodeSel = self.nodesel(self.model, self.policy, dataset=temp_features, step_ids=step_ids)
+                self.model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+                self.model.setRealParam('limits/time', self.time_limit)
+            else:
+                ourNodeSel = self.nodesel(self.model, self.policy)
+                self.model.includeNodesel(ourNodeSel, "nodesel", "My node selection", 999999, 999999)
+
+
+        personalize_scip(self.model, 10)
+
+        self.model.readProblem(problem)
+        self.model.optimize()
+
+        torch.cuda.empty_cache()
+
+        return temp_features, step_ids, ourNodeSel
+
+    def addTreeData(self, ourNodeSel, temp_features, step_ids):
+        self.debug = []
+        self.soracle = []
+        self.sfeature_list = []
+        self.weights = []
+
+
+        optimal_node = None
+        for node in ourNodeSel.tree.leaves():
+
+            if checkIsOptimal(node, self.model, ourNodeSel.tree):
+                optimal_node = node
+                break
+
+        if optimal_node is not None:
+            nodeToGap = getGapValues(self.model, ourNodeSel.tree)
+            optimal_ids = getListOptimalID(optimal_node.identifier, ourNodeSel.tree)
+            for i in range(len(temp_features)):
+                queue_contains_optimal = False
+                optimal_id = None
+                idlist = step_ids[i].flatten().tolist()
+                for id in idlist:
+                    if id in optimal_ids:
+                        queue_contains_optimal = True
+                        optimal_id = id
+                        break
+
+                if queue_contains_optimal:
+                    self.debug.append((optimal_id, step_ids))
+                    final_label = []
+                    for id in idlist:
+                        if id in nodeToGap:
+                            final_label.append(nodeToGap[id])
+                    biggest_gap = max(final_label)
+                    final_label = []
+                    for id in idlist:
+                        if id in nodeToGap:
+                            final_label.append(nodeToGap[id])
+                        else:
+                            final_label.append(biggest_gap)
+                    oracle_val = torch.tensor(final_label).type(torch.float32)
+                    oracle_val= self.softmax(-1 * oracle_val)
+                    self.soracle.append(oracle_val)
+                    self.sfeature_list.append(temp_features[i])
+                    self.weights.append(1/len(temp_features))
+
+        for i in range(len(self.weights)):
+            self.weights[i] = 1/len(self.weights)
+
+        samples = list(zip(self.sfeature_list, self.soracle, self.debug, self.weights))
+
+        return samples
+
+    def compute(self, bg):
+        unbatched = dgl.unbatch(bg)
+        sizes = [torch.sum(unbatched[i].ndata['in_queue']) for i in range(len(unbatched))]
+        g = bg
+        n = g.number_of_nodes()
+        h_size = 14
+        h = torch.zeros((n, h_size))
+        c = torch.zeros((n, h_size))
+        iou = torch.zeros((n, 3 * h_size))
+        outputs, _ = self.policy(g)
+        try:
+            outputs = size_splits(outputs, sizes)
+        except:
+            return None, None
+
+        return unbatched, outputs
+
+    def train(self):
+        self.policy.train()
+
+        torch.cuda.empty_cache()
+        counter = 0
+        problems = glob.glob(self.problem_dir + "/*." + self.problem_type)
+        printProgressBar(0, len(problems), prefix='Progress:', suffix='Complete', length=50)
+        for total_epoch in range(self.num_epoch):
+            for problem in problems:
+                print(problem)
+                torch.cuda.empty_cache()
+                printProgressBar(counter, len(problems), prefix='Progress:', suffix='Complete', length=50)
+                counter += 1
+                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
+
+                if len(ourNodeSel.tree.all_nodes()) < 2:
+                    continue
+
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids)
+
+                if len(samples) == 0:
+                    continue
+
+                s_loader = DataLoader(samples, batch_size=1, shuffle=True, collate_fn=collate)
+                for epoch in range(self.num_repeat):
+                    complete_loss = 0
+                    for (bg, labels, weights) in s_loader:
+                        self.optimizer.zero_grad()
+
+                        unbatched, outputs = self.compute(bg)
+                        if unbatched is None:
+                            continue
+                        total_loss = None
+                        for i in range(len(unbatched)):
+                            output = outputs[i]
+                            label = labels[i]
+                            _, indices = torch.max(output, 0)
+                            output = output.unsqueeze(0)
+                            label = label.unsqueeze(0)
+                            loss = self.loss(output, label.to(device=self.device))
+                            if total_loss == None:
+                                total_loss = loss
+                            else:
+                                total_loss = total_loss + loss
+
+                        self.optimizer.zero_grad()
+                        complete_loss += total_loss.detach().item()
+                        total_loss.backward()
+                        self.optimizer.step()
+                    torch.cuda.empty_cache()
+                if os.path.exists(self.save_path):
+                    os.remove(self.save_path)
+                torch.save(self.policy.state_dict(), self.save_path)
+                if counter % 1 == 0:
+                    val_accuracy, nodes_needed, val_loss = self.validate()
+                    print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
+                          (total_epoch + 1, val_loss, val_accuracy, nodes_needed))
+
+        # self.write_to_log_file("Train", self.problem_dir, val_accuracy, 0)
+
+    def testAccuracy(self, problems):
+        real_problems = glob.glob(problems + "/*." + self.problem_type)
+        number_right = 0
+        num_problems = 0
+        with torch.no_grad():
+            for problem in real_problems:
+                print(problem)
+
+                temp_features, step_ids, ourNodeSel = self.solveModel(problem)
+                self.listNNodes.append(self.model.getNNodes())
+                print(self.listNNodes)
+
+                if len(ourNodeSel.tree.all_nodes()) < 2:
+                    continue
+
+                samples = self.addTreeData(ourNodeSel, temp_features, step_ids, num_past=0)
+
+                if self.isScippable():
+                    continue
+
+                s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=False, collate_fn=collate)
+                num_problems += 1
+                for (bg, labels, weights) in s_loader:
+                    self.optimizer.zero_grad()
+                    unbatched, outputs = self.compute(bg)
+                    for i in range(len(unbatched)):
+                        output = outputs[i]
+                        label = labels[i]
+                        _, indices = torch.max(output, 0)
+                        if indices.item() == label.item():
+                            number_right += 1/samples
+
+            print('Accuracy %.2f' % (100 * number_right/num_problems))
+        self.write_to_log_file("Test", problems, number_right/num_problems, 0)

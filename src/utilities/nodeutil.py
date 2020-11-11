@@ -48,11 +48,13 @@ def checkIsOptimal(node, model, tree):
     return isOptimal
 
 def getNodeGap(node, model):
+
     variables = node.data.variables
     bound_types = node.data.bound_types
     branch_bounds = node.data.branch_bounds
     listOfSols = model.getSols()
     for sol in listOfSols:
+        isOptimal = True
         for i in range(len(variables)):
             optval = sol[variables[i]]
             if ((bound_types[i] == 0 and optval < branch_bounds[i]) or (
@@ -63,6 +65,22 @@ def getNodeGap(node, model):
             return model.getSolObjVal(sol) - model.getObjVal()
     return -1
 
+def getGapValues(model, tree):
+    nodeToGap = {}
+    for node in tree.leaves():
+        gap = getNodeGap(node, model)
+        if gap is not -1:
+            nodeToGap[node.identifier] = gap
+            curr_id = node.identifier
+            curr_node = tree.get_node(node.identifier)
+            while not curr_node.is_root():
+                curr_node = tree.parent(curr_id)
+                curr_id = curr_node.tag
+                if curr_id in nodeToGap:
+                    nodeToGap[curr_id] = min(nodeToGap[curr_id], gap)
+                else:
+                    nodeToGap[curr_id] = gap
+    return nodeToGap
 # %%
 def getNodeFeature(node, model):
     toReturn = None
