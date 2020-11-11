@@ -977,10 +977,10 @@ class RegressionDagger(Dagger):
         torch.cuda.empty_cache()
         counter = 0
         problems = glob.glob(self.problem_dir + "/*." + self.problem_type)
+        print(self.problem_dir + "/*." + self.problem_type)
         printProgressBar(0, len(problems), prefix='Progress:', suffix='Complete', length=50)
         for total_epoch in range(self.num_epoch):
             for problem in problems:
-                print(problem)
                 torch.cuda.empty_cache()
                 printProgressBar(counter, len(problems), prefix='Progress:', suffix='Complete', length=50)
                 counter += 1
@@ -1025,7 +1025,7 @@ class RegressionDagger(Dagger):
                 if os.path.exists(self.save_path):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
-                if counter % 1 == 0:
+                if counter % 50  == 0:
                     val_accuracy, nodes_needed, val_loss = self.validate()
                     print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
                           (total_epoch + 1, val_loss, val_accuracy, nodes_needed))

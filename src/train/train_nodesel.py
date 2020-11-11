@@ -44,8 +44,8 @@ elif mode == "baseline":
 elif mode == "regression":
     lstmFeature = LinLib(x_size, device)
     lstmFeature.to(device)
-    my_dagger = RegressionDagger(lstmFeature, "data/instances/setcover_400r_1000c_0.05d_100mc_0se/train_500r_1000c", device,
-                           "data/instances/setcover_400r_1000c_0.05d_100mc_0se/train_500r_1000c", num_repeat=1, num_train=1000, num_epoch=4,
+    my_dagger = RegressionDagger(lstmFeature, "data/instances/setcover/train_250r_500c_0.05d_10mc_0se", device,
+                           "data/instances/setcover/valid_250r_500c_0.05d_10mc_0se", num_repeat=1, num_train=1000, num_epoch=4,
                            save_path="models/lstmFeatureHalf.pt", problem_type="lp")
     my_dagger.setDescription("Regression")
 
