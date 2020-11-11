@@ -340,6 +340,7 @@ class TreeDagger(Dagger):
         self.nodesel = MyNodesel
         self.num_repeat = num_repeat
         self.time_limit = 250
+        self.batch_size = 1
         self.model_name = "TreeDagger"
         self.val_dir = val_dir
 
