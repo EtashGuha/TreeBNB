@@ -363,7 +363,7 @@ class TreeDagger(Dagger):
 
                 s_loader = DataLoader(samples, batch_size=self.batch_size, shuffle=False, collate_fn=collate)
                 num_problems += 1
-                total_loss
+                total_loss = None
                 for (bg, labels, weights) in s_loader:
                     self.optimizer.zero_grad()
                     unbatched, outputs = self.compute(bg)
