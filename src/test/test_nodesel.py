@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from TreeLSTM import TreeLSTMCell, TreeLSTM, LinLib, ShallowLib
-from dagger import TreeDagger, RankDagger, branchDagger
+from dagger import TreeDagger, RankDagger, branchDagger, RegressionDagger
 import pickle
 import os
 import matplotlib.pyplot as plt
@@ -50,7 +50,22 @@ if mode == "tree":
     print(solving_times_def)
 # create the model
 
+elif mode == "regression":
+    lstmFeature = LinLib(x_size, device)
+    lstmFeature.to(device)
+    if os.path.exists("model/lstmFeatureHalf.pt"):
+        print("Loading previous model")
+        lstmFeature.load_state_dict(torch.load("models/lstmFeatureHalf.pt"))
+    my_dagger = RegressionDagger(lstmFeature, "data/instances/setcover/train_250r_500c_0.05d_10mc_0se", device,
+                           "data/instances/setcover/valid_250r_500c_0.05d_10mc_0se", num_repeat=1, num_train=1000, num_epoch=4,
+                           save_path="models/lstmFeatureHalf.pt", problem_type="lp")
+    my_dagger.setDescription("Regression")
 
+    tree_vals, def_vals, solving_times_us, solving_times_def = my_dagger.test("data/instances/setcover/test_250r_500c_0.05d_10mc_0se")
+    print(tree_vals)
+    print(def_vals)
+    print(solving_times_us)
+    print(solving_times_def)
 elif mode == "baseline":
     lstmFeature = LinLib(x_size, device)
     lstmFeature.to(device)
