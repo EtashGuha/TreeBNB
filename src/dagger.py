@@ -824,7 +824,7 @@ class rankOffline(RankDagger):
 
 class RegressionDagger(Dagger):
     def __init__(self, selector, problem_dir, device, val_dir, num_train=None, num_epoch = 1, batch_size=5, save_path=None, num_repeat=1, problem_type="lp"):
-        super().__init__(selector, problem_dir, device, nn.MSELoss(), num_train, num_epoch, batch_size, save_path=save_path, problem_type=problem_type)
+        super().__init__(selector, problem_dir, device, nn.CrossEntropyLoss(), num_train, num_epoch, batch_size, save_path=save_path, problem_type=problem_type)
         self.nodesel = RegressionNodesel
         self.num_repeat = num_repeat
         self.time_limit = 250
@@ -833,7 +833,6 @@ class RegressionDagger(Dagger):
         self.softmax = torch.nn.Softmax()
     def validate(self):
         real_problems = glob.glob(self.val_dir + "/*." + self.problem_type)
-        print(real_problems)
         number_right = 0
         num_problems = 0
         nodes_needed = 0
@@ -932,20 +931,31 @@ class RegressionDagger(Dagger):
                     self.debug.append((optimal_id, step_ids))
                     final_label = []
                     for id in idlist:
-                        if id in nodeToGap:
-                            final_label.append(nodeToGap[id])
-                    biggest_gap = max(final_label)
-                    final_label = []
-                    for id in idlist:
-                        if id in nodeToGap:
-                            final_label.append(nodeToGap[id])
-                        else:
-                            final_label.append(biggest_gap)
-                    oracle_val = torch.tensor(final_label).type(torch.float32)
-                    oracle_val= self.softmax(-1 * oracle_val)
-                    self.soracle.append(oracle_val)
-                    self.sfeature_list.append(temp_features[i])
-                    self.weights.append(1/len(temp_features))
+                        if id in optimal_ids:
+                            queue_contains_optimal = True
+                            optimal_id = id
+                            break
+                    if queue_contains_optimal:
+                        self.debug.append((optimal_id, step_ids))
+                        oracle_val = (step_ids[i] == optimal_id).type(torch.uint8).nonzero()[0][0]
+                        self.soracle.append(oracle_val)
+                        self.sfeature_list.append(temp_features[i])
+                        self.weights.append(1 / len(temp_features))
+                    # for id in idlist:
+                    #     if id in nodeToGap:
+                    #         final_label.append(nodeToGap[id])
+                    # biggest_gap = max(final_label)
+                    # final_label = []
+                    # for id in idlist:
+                    #     if id in nodeToGap:
+                    #         final_label.append(nodeToGap[id])
+                    #     else:
+                    #         final_label.append(biggest_gap)
+                    # oracle_val = torch.tensor(final_label).type(torch.float32)
+                    # oracle_val= self.softmax(-1 * oracle_val)
+                    # self.soracle.append(oracle_val)
+                    # self.sfeature_list.append(temp_features[i])
+                    # self.weights.append(1/len(temp_features))
 
         for i in range(len(self.weights)):
             self.weights[i] = 1/len(self.weights)
