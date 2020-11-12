@@ -366,19 +366,22 @@ class TreeDagger(Dagger):
                 num_problems += 1
                 total_loss = None
                 for (bg, labels, weights) in s_loader:
-                    self.optimizer.zero_grad()
-                    unbatched, outputs = self.compute(bg)
-                    for i in range(len(unbatched)):
-                        output = outputs[i]
-                        label = labels[i]
-                        _, indices = torch.max(output, 0)
-                        if indices.item() == label.item():
-                            number_right += 1 / len(samples)
-                        loss = self.loss(output, label.to(device=self.device))
-                        if total_loss == None:
-                            total_loss = loss
-                        else:
-                            total_loss = total_loss + loss
+                    try:
+                        self.optimizer.zero_grad()
+                        unbatched, outputs = self.compute(bg)
+                        for i in range(len(unbatched)):
+                            output = outputs[i]
+                            label = labels[i]
+                            _, indices = torch.max(output, 0)
+                            if indices.item() == label.item():
+                                number_right += 1 / len(samples)
+                            loss = self.loss(output, label.to(device=self.device))
+                            if total_loss == None:
+                                total_loss = loss
+                            else:
+                                total_loss = total_loss + loss
+                    except:
+                        pass
         return number_right/num_problems, nodes_needed, total_loss
 
 
