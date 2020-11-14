@@ -20,7 +20,7 @@ import glob
 from utilities.utilities import init_scip_params, init_scip_params_haoran, personalize_scip
 from brancher import TreeBranch
 import faulthandler
-import os
+
 faulthandler.enable()
 os.chdir("../")
 torch.set_printoptions(precision=10)
@@ -366,22 +366,21 @@ class TreeDagger(Dagger):
                 num_problems += 1
                 total_loss = None
                 for (bg, labels, weights) in s_loader:
-                    try:
-                        self.optimizer.zero_grad()
-                        unbatched, outputs = self.compute(bg)
-                        for i in range(len(unbatched)):
-                            output = outputs[i]
-                            label = labels[i]
-                            _, indices = torch.max(output, 0)
-                            if indices.item() == label.item():
-                                number_right += 1 / len(samples)
-                            loss = self.loss(output, label.to(device=self.device))
-                            if total_loss == None:
-                                total_loss = loss
-                            else:
-                                total_loss = total_loss + loss
-                    except:
-                        pass
+                    self.optimizer.zero_grad()
+                    unbatched, outputs = self.compute(bg)
+                    for i in range(len(unbatched)):
+                        output = outputs[i]
+                        label = labels[i]
+                        _, indices = torch.max(output, 0)
+                        if indices.item() == label.item():
+                            number_right += 1 / len(samples)
+                        output = output.unsqueeze(0)
+                        label = label.unsqueeze(0)
+                        loss = self.loss(output, label.to(device=self.device))
+                        if total_loss == None:
+                            total_loss = loss
+                        else:
+                            total_loss = total_loss + loss
         return number_right/num_problems, nodes_needed, total_loss
 
 
@@ -389,7 +388,7 @@ class TreeDagger(Dagger):
         temp_features = []
         torch.autograd.set_detect_anomaly(True)
         self.model = Model("indset")
-        self.model.hideOutput()
+        # self.model.hideOutput()
         step_ids = []
         ourNodeSel = None
 
@@ -525,7 +524,12 @@ class TreeDagger(Dagger):
                     os.remove(self.save_path)
                 torch.save(self.policy.state_dict(), self.save_path)
                 if counter % 50 == 0:
+                    print("validating")
                     val_accuracy, nodes_needed, val_loss = self.validate()
+                    print(total_epoch)
+                    print(val_loss)
+                    print(val_accuracy)
+                    print(nodes_needed)
                     print('[%d] loss: %.3f accuracy: %.3f nodes needed: %d' %
                           (total_epoch + 1, val_loss, val_accuracy, nodes_needed))
 
